@@ -1,0 +1,2765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Route Log — Road Trip Planner</title>
+<meta name="description" content="Plan a road trip on a map: stops, drive times, fuel, breaks, weather and budget, all saved on your own device.">
+<meta name="theme-color" content="#163038">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icons/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Route Log">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#14262b;--bg:#e7ecea;--paper:#ffffff;--panel:#163038;--panel-2:#1f414a;
+  --brass:#b9842a;--brass-soft:#d8a64a;--teal:#2f7077;--muted:#65797d;
+  --line:#d2dad8;--line-soft:#e2e8e6;--known:#2f7077;--est:#b9842a;--danger:#a8472f;
+  --shadow:0 1px 2px rgba(20,38,43,.05), 0 8px 24px rgba(20,38,43,.06);
+  --radius:14px;--mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --disp:"Bricolage Grotesque",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3{font-family:var(--disp);font-weight:700;letter-spacing:-.01em;margin:0}
+a{color:var(--teal)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+header.top{background:var(--panel);color:#eef3f2;border-bottom:3px solid var(--brass)}
+.top .wrap{padding-top:30px;padding-bottom:26px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--brass-soft);margin-bottom:10px}
+.top h1{font-size:clamp(30px,5vw,50px);line-height:1.02;color:#fff}
+.top h1 .arrow{color:var(--brass-soft);font-family:var(--mono);font-weight:400;font-size:.7em;vertical-align:.08em;padding:0 .12em}
+.sub{color:#aebfbf;margin-top:10px;max-width:64ch;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.chip{background:var(--panel-2);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 14px;min-width:120px}
+.chip .k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#8aa0a2}
+.chip .v{font-family:var(--disp);font-size:21px;font-weight:700;color:#fff;margin-top:3px}
+.chip .v small{font-size:12px;color:#aebfbf;font-family:var(--body);font-weight:400}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:20px}
+.toolbar .spacer{flex:1}
+.tbtn{font-family:var(--body);font-size:12.5px;font-weight:500;cursor:pointer;background:rgba(255,255,255,.06);color:#dfe8e7;border:1px solid rgba(255,255,255,.14);padding:7px 13px;border-radius:8px;transition:background .15s}
+.tbtn:hover{background:rgba(255,255,255,.14)}
+.tbtn.warn:hover{background:rgba(168,71,47,.4);border-color:var(--danger)}
+.savestate{font-family:var(--mono);font-size:11px;color:#8aa0a2;display:flex;align-items:center;gap:7px}
+.netbar{position:fixed;left:0;right:0;bottom:0;z-index:1500;background:var(--brass);color:#3a2705;font-family:var(--body);font-size:13px;font-weight:600;text-align:center;padding:9px 14px;box-shadow:0 -2px 10px rgba(0,0,0,.18);transform:translateY(110%);transition:transform .25s ease}
+.netbar.show{transform:translateY(0)}
+.netbar.upd{background:var(--teal);color:#fff;cursor:pointer}
+.netbar button{margin-left:10px;font-family:var(--body);font-size:12px;font-weight:700;border:1px solid rgba(0,0,0,.25);background:rgba(255,255,255,.85);color:#3a2705;border-radius:7px;padding:4px 11px;cursor:pointer}
+.netbar.upd button{border-color:rgba(255,255,255,.5);background:#fff;color:var(--teal)}
+@media print{.netbar{display:none!important}}
+.savedot{width:8px;height:8px;border-radius:50%;background:var(--brass-soft);display:inline-block}
+.roundtoggle{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#dfe8e7}
+.roundtoggle input{accent-color:var(--brass-soft);width:16px;height:16px}
+
+nav.sticky{position:sticky;top:0;z-index:600;background:var(--panel);border-bottom:3px solid var(--brass);box-shadow:0 3px 12px rgba(0,0,0,.2)}
+nav.sticky .wrap{display:flex;gap:4px;overflow-x:auto;padding-top:8px;padding-bottom:8px}
+nav.sticky a{font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;text-decoration:none;color:rgba(238,243,242,.85);padding:7px 12px;border-radius:8px;white-space:nowrap}
+nav.sticky a:hover{color:#fff;background:rgba(255,255,255,.15)}
+
+section{padding:38px 0 8px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+.sec-head h2{font-size:24px}
+.sec-num{font-family:var(--mono);font-size:12px;color:var(--brass);letter-spacing:.1em}
+.sec-note{font-size:13px;color:var(--muted);margin:6px 0 18px}
+
+#map{height:440px;border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--line);background:#cdd8d6}
+.maptop{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.maptop .spacer{flex:1}
+.routebtn{font-family:var(--body);font-size:12.5px;font-weight:500;cursor:pointer;background:#fff;color:var(--teal);border:1px solid var(--teal);padding:8px 14px;border-radius:8px;text-decoration:none;display:inline-block}
+.routebtn:hover{background:#f3f8f7}
+.routebtn.solid{background:var(--teal);color:#fff;border-color:var(--teal)}
+.routebtn.solid:hover{background:#26606a}
+.routestatus{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.maplegend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.maplegend span{display:inline-flex;align-items:center;gap:7px}
+.lgline{width:22px;height:0;border-top:3px solid var(--teal)}
+.lgline.ret{border-top:3px dashed var(--brass)}
+.lgdot{width:13px;height:13px;border-radius:50%;background:var(--brass);border:2px solid #fff;box-shadow:0 0 0 1px var(--brass)}
+.lgrest{width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid var(--teal)}
+.lgyou{width:13px;height:13px;border-radius:50%;background:#fff;border:3px solid var(--teal)}
+.mapfail{padding:30px;text-align:center;color:var(--muted);font-size:14px}
+
+.routewrap{position:relative}
+.stop{display:grid;grid-template-columns:54px 1fr;gap:0;position:relative}
+.spine{position:relative}
+.spine::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--teal);transform:translateX(-50%)}
+.stop:first-child .spine::before{top:28px}
+.stop:last-child .spine::before{bottom:calc(100% - 28px)}
+.node{position:absolute;left:50%;top:18px;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;background:var(--brass);color:#fff;font-family:var(--mono);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px var(--bg);z-index:2}
+.stop.wedding .node{background:var(--panel);box-shadow:0 0 0 4px var(--bg),0 0 0 5px var(--brass)}
+.stop.tentative .spine::before{background:repeating-linear-gradient(var(--brass) 0 6px,transparent 6px 12px)}
+.stop.tentative .node{background:#fff;color:var(--brass);border:2px solid var(--brass)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:10px 0 10px 6px;box-shadow:var(--shadow)}
+.card .legrow{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.card .legrow b{color:var(--teal);font-weight:700}
+.card .legrow .real{background:#e9f1f1;color:var(--teal);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px}
+.card .place{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
+.card .place h3{font-size:18px}
+.badge{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+.badge.book{background:#e6efef;color:var(--teal)}
+.badge.wed{background:#f2e6cd;color:#7a560f}
+.badge.tent{background:#f6ece0;color:var(--brass);border:1px dashed var(--brass)}
+.badge.way{background:#e9eef0;color:var(--panel)}
+.card .meta{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input{font-family:var(--body);font-size:14px;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:#fbfdfc;min-width:60px}
+.field input:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal)}
+.field input.hotel{min-width:210px}
+.field input.num{width:74px;font-family:var(--mono);text-align:right}
+.field input.time{width:120px;font-family:var(--mono)}
+.card .notein{width:100%;margin-top:10px;font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:7px;padding:7px 9px;background:transparent;font-family:var(--body)}
+
+/* day plan timeline */
+.ribbon{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:2px 0 12px;padding:0}
+.ribbon::-webkit-scrollbar{height:5px}
+.ribbon::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.rday{min-width:0;text-align:center;border-radius:6px;padding:4px 2px 5px;border:1px solid transparent;font-family:var(--mono);line-height:1.15}.ribbon .rhd{font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--muted);text-align:center;padding:0 0 3px}.rday--out{color:#c2cecc;opacity:.5}
+.rday .rmk{display:block;font-size:8px;line-height:1;margin-bottom:-1px;color:#7a5309}
+.rday .rdow{display:block;font-size:8.5px;letter-spacing:.04em;opacity:.85}
+.rday .rnum{display:block;font-size:12px;font-weight:700}
+.rday--past{color:#a7b4b2;opacity:.55}
+.rday--fut{color:var(--teal);background:#eef3f2;border-color:var(--line)}
+.rday--cur{color:#fff;background:var(--teal);border-color:var(--teal);box-shadow:0 1px 5px rgba(22,48,56,.35)}
+.rday--wed{color:#5a3d0a;background:var(--brass);border-color:var(--brass)}
+.rday--wed .rdow,.rday--wed .rnum{opacity:1}
+.rday--wed.rday--cur{box-shadow:0 0 0 2px var(--teal),0 1px 5px rgba(0,0,0,.3)}
+.card{display:flex;flex-direction:column}
+.cardrow{display:flex;gap:14px;align-items:stretch}
+.cardgauge{max-width:100%}
+.card-body{flex:1;min-width:0}
+.card-map{flex:0 0 132px;align-self:stretch;min-height:210px;position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#dfe7e6}
+.card-map .mm{position:absolute;inset:0;background:#dfe7e6}
+.card-map .mmcap{position:absolute;left:0;right:0;bottom:0;z-index:650;font-family:var(--mono);font-size:10px;color:#fff;background:rgba(22,48,56,.82);padding:3px 6px;text-align:center;letter-spacing:.03em}
+.routeline{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.routeline .fromloc{font-family:var(--mono);font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.routeline .star{color:var(--brass)}
+.routeline .star.lone{font-size:15px;line-height:1}
+.routeline .rarrow{color:var(--brass);font-weight:700;font-size:15px}
+@media(max-width:640px){.cardrow{flex-direction:column}.card-map{flex-basis:auto;width:100%;min-height:150px}}
+.field input.depart{background:#e6f4ea;border-color:#8fbfa0;color:#1f5133}
+.field input.drivetime{width:112px;font-family:var(--mono);text-align:left}
+.arrivepill{display:inline-block;background:#f6d5d8;color:#8a1c24;font-weight:700;padding:1px 8px;border-radius:999px;font-family:var(--mono);font-size:11px;text-transform:none;letter-spacing:0}
+.rday[data-day]{cursor:pointer}
+.rday[data-day]:hover{outline:1px solid var(--brass);outline-offset:-1px}
+.stop .card{transition:box-shadow .2s}
+.stop.flash .card{box-shadow:0 0 0 2px var(--brass),var(--shadow)}
+.card{position:relative}
+.cardnum{position:absolute;top:-10px;left:-10px;width:26px;height:26px;border-radius:50%;background:var(--brass);color:#fff;font-family:var(--mono);font-weight:700;font-size:13px;display:none;align-items:center;justify-content:center;box-shadow:0 0 0 3px var(--bg);z-index:5}
+.dayplan{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+.dayplan .dphead{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);margin-bottom:9px}
+.timeline{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tchip{font-family:var(--mono);font-size:11.5px;padding:5px 9px;border-radius:8px;border:1px solid var(--line);background:#fbfdfc;white-space:nowrap}
+.tchip .t{color:var(--teal);font-weight:700}
+.tchip.depart{border-color:var(--teal);background:#eef5f4}
+.tchip.arrive{border-color:var(--brass);background:#f8f0e2}
+.tchip.lunch{border-color:var(--brass);background:#f8f0e2;color:#7a560f}
+.tchip.dwell{border-color:var(--brass);background:#f6efe3;color:#7a560f}
+.tchip.fuel{border-color:var(--teal);background:#e3efee;color:#1f5a60;font-weight:600}
+.tarrow{color:var(--muted);font-size:11px}
+.navbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.navbtns a{font-family:var(--body);font-size:12px;font-weight:500;text-decoration:none;padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--ink);background:#fff}
+.navbtns a:hover{border-color:var(--teal);color:var(--teal)}
+.navbtns a.g{border-color:var(--teal)}
+.reststops{margin-top:10px;font-size:12.5px;color:var(--muted)}
+.reststops .rs{display:inline-block;background:#f1f5f4;border:1px solid var(--line-soft);border-radius:7px;padding:3px 8px;margin:3px 5px 0 0;font-family:var(--mono);font-size:11px}
+
+.youhere{grid-column:1/-1;margin:2px 0 2px 60px;background:#eaf3f2;border:1px solid var(--teal);border-left:4px solid var(--teal);border-radius:10px;padding:11px 14px;font-size:13.5px;display:flex;align-items:center;gap:10px}
+.youhere .pp{width:12px;height:12px;border-radius:50%;background:var(--teal);position:relative}
+@media(prefers-reduced-motion:no-preference){.youhere .pp::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--teal);animation:pulse 1.8s ease-out infinite}@keyframes pulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.8);opacity:0}}}
+.youhere b{font-family:var(--mono);color:var(--teal)}
+.subhead{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);margin:26px 0 4px 6px}
+.subhead.ret{color:var(--muted)}
+
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-soft)}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:#f6f8f7}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr.cathead td{background:#eef3f2;font-family:var(--disp);font-weight:700;font-size:13px;color:var(--panel);letter-spacing:.02em}
+tbody tr:hover{background:#fafcfb}
+td input[type=text]{width:100%;border:none;background:transparent;font-family:var(--body);font-size:14px;color:var(--ink);padding:2px 0}
+td input[type=number]{width:100px;border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-family:var(--mono);text-align:right;background:#fbfdfc}
+td input:focus{outline:2px solid var(--teal);outline-offset:1px;border-radius:5px}
+.statuspill{cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:999px;border:1px solid;user-select:none}
+.statuspill.known{color:var(--known);border-color:var(--known);background:#e9f1f1}
+.statuspill.est{color:var(--est);border-color:var(--est);background:#f7eedd}
+.rowdel{cursor:pointer;color:var(--muted);border:none;background:none;font-size:16px;line-height:1;padding:4px 8px;border-radius:6px}
+.rowdel:hover{color:var(--danger);background:#f6e9e5}
+.auto{font-family:var(--mono);font-size:10px;color:var(--teal);background:#e9f1f1;padding:2px 7px;border-radius:999px;margin-left:8px}
+.addbtn{font-family:var(--body);font-size:13px;cursor:pointer;background:none;border:1px dashed var(--line);color:var(--teal);padding:8px 14px;border-radius:8px;margin:12px 14px}
+.addbtn:hover{border-color:var(--teal);background:#f3f8f7}
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line-soft);border-top:1px solid var(--line)}
+.totals .t{background:#fff;padding:14px 16px}
+.totals .t .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.totals .t .v{font-family:var(--disp);font-size:24px;font-weight:700;margin-top:4px}
+.totals .t.grand{background:var(--panel)}
+.totals .t.grand .k{color:#8aa0a2}.totals .t.grand .v{color:#fff}
+.totals .t.known .v{color:var(--known)}.totals .t.est .v{color:var(--est)}
+.splitbar{height:8px;display:flex;border-radius:999px;overflow:hidden;margin:14px}
+.splitbar .sk{background:var(--known)}.splitbar .se{background:var(--est)}
+.settingsrow{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;padding:14px;background:#f6f8f7;border-bottom:1px solid var(--line-soft)}
+.settingsrow .field input{font-family:var(--mono);text-align:right;width:90px}
+.settingsrow .field input.time{text-align:left;width:120px}
+
+.gasbox{padding:14px;border-bottom:1px solid var(--line-soft);background:#fbfdfc}
+.gasbox .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.gaskey{font-family:var(--mono);font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;width:300px;max-width:60vw}
+.gasmsg{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.gasmsg a{color:var(--teal)}
+.linkbtn{background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;font-family:var(--body)}
+
+.toggle-stops{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink)}
+.toggle-stops input{accent-color:var(--teal);width:16px;height:16px}
+td.leg b{font-family:var(--disp);font-weight:600}
+tr.dtotal td{background:#eef3f2;font-family:var(--disp);font-weight:700;color:var(--panel);border-top:2px solid var(--line)}
+
+.live{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.live .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.bigbtn{font-family:var(--body);font-size:14px;font-weight:600;cursor:pointer;background:var(--teal);color:#fff;border:none;padding:11px 20px;border-radius:9px}
+.bigbtn:hover{background:#26606a}
+.bigbtn.sec{background:#fff;color:var(--teal);border:1px solid var(--teal)}
+.bigbtn.sec:hover{background:#f3f8f7}
+.livestatus{margin-top:18px;font-size:14px;line-height:1.6}
+.livestatus .head{font-family:var(--disp);font-size:19px;font-weight:700;margin-bottom:6px}
+.livecards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.lc{background:#f6f8f7;border:1px solid var(--line-soft);border-radius:11px;padding:13px 15px}
+.lc .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.lc .v{font-family:var(--disp);font-size:22px;font-weight:700;margin-top:4px;color:var(--panel)}
+.lc .v small{font-size:13px;color:var(--muted);font-weight:400;font-family:var(--body)}
+.hint{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.55}
+.manualpick{margin-top:14px;font-size:13px;color:var(--muted)}
+.manualpick select{font-family:var(--body);font-size:13px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;margin-left:8px}
+.todaybanner{background:#f2e6cd;border:1px solid var(--brass);border-radius:11px;padding:13px 16px;margin-bottom:16px;font-size:14px}
+.todaybanner b{color:#7a560f}
+
+footer{margin:40px 0 60px;color:var(--muted);font-size:12.5px;line-height:1.7}
+footer .wrap{border-top:1px solid var(--line);padding-top:22px}
+.fnote{max-width:78ch}
+
+@media(max-width:640px){.totals{grid-template-columns:1fr}.card .field input.hotel{min-width:150px}#map{height:330px}.stop{grid-template-columns:44px 1fr}}
+@media(max-width:600px){
+  .wrap{padding:0 13px}
+  .top .wrap{padding-top:22px;padding-bottom:20px}
+  .top h1{font-size:26px;line-height:1.08}
+  .sub{font-size:13px;margin-top:8px}
+  .chips{gap:8px;margin-top:16px}
+  .chip{flex:1 1 44%;min-width:0;padding:9px 11px}
+  .chip .v{font-size:18px}
+  .toolbar{gap:8px;margin-top:14px}
+  section{padding:24px 0 6px}
+  .sec-head h2{font-size:20px}
+  .sec-note{margin:6px 0 14px}
+  #map{height:300px}
+  .stop{grid-template-columns:1fr}
+  .spine{display:none}
+  .card{padding:13px 13px;margin:9px 0 9px 0}
+  .card .place h3{font-size:17px}
+  .cardnum{display:flex}
+  
+  .card .meta{display:grid;grid-template-columns:1fr 1fr;gap:10px 10px;align-items:end}
+  .card .field{min-width:0}
+  .card .field input{width:100%;min-width:0;box-sizing:border-box}
+  .card .field input.num,.card .field input.time,.card .field input.drivetime,.card .field input.hotel{width:100%;min-width:0}
+  .card .field.hotelfield{grid-column:1 / -1}
+  .card-map{min-height:170px}
+  .youhere{margin-left:0}
+  th,td{padding:8px 9px}
+  table{font-size:13px}
+  td input[type=number]{width:76px;padding:5px 6px}
+  td input[type=text]{font-size:13px}
+  .settingsrow{gap:12px;padding:12px}
+  .settingsrow .field input{width:100%}
+  .totals .t .v{font-size:21px}
+  .live{padding:15px}
+  body{overflow-x:hidden}
+}
+.cardgauge{margin:14px 0 4px}
+.cardgauge .cg-around{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px}
+.cardgauge .cg-col{display:flex;flex-direction:column;gap:10px;min-width:150px;flex:1 1 150px;max-width:230px}
+.cardgauge .cg-center{flex:0 0 auto;width:360px;max-width:92vw}
+.cardgauge .cg-map{flex:1 1 160px;min-width:150px;max-width:230px;align-self:stretch;border:none;background:transparent;border-radius:0;position:relative}
+.cardgauge .cg-map .mm{background:transparent;-webkit-mask-image:radial-gradient(ellipse 72% 76% at 50% 57%,#000 24%,rgba(0,0,0,0.3) 58%,rgba(0,0,0,0) 84%);mask-image:radial-gradient(ellipse 72% 76% at 50% 57%,#000 24%,rgba(0,0,0,0.3) 58%,rgba(0,0,0,0) 84%)}.cardgauge .cg-map::after{content:"";position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(to top,var(--paper),rgba(251,253,252,0));pointer-events:none;z-index:2}.cardgauge .cg-maptitle{position:absolute;top:5px;left:9px;right:9px;z-index:3;text-align:left;font-family:var(--body);font-size:12.5px;line-height:1.25;pointer-events:none;text-shadow:0 1px 2px var(--paper),0 0 7px var(--paper),0 0 4px var(--paper)}.cardgauge .cg-maptitle .mt-from{color:var(--muted)}.cardgauge .cg-maptitle .mt-to{font-weight:800;color:var(--ink)}.cardgauge .cg-maptitle .mt-arr{color:var(--brass)}.cardgauge .cg-maptitle .badge{transform:scale(.82);vertical-align:middle}
+.cardgauge .cg{width:100%;height:auto;display:block}
+.cardgauge .cg-scrub{display:flex;align-items:center;gap:8px;margin-top:2px;font-size:11.5px;color:var(--muted)}
+.cardgauge .cg-scrub input[type=range]{flex:1;accent-color:#e2472f}
+.cardgauge .cg-scrub .cg-simlab{min-width:50px;text-align:right;font-family:var(--mono);color:var(--ink)}
+.cardgauge .cg-scrub .cg-live{font-family:var(--body);font-size:11px;font-weight:600;border:1px solid var(--line);border-radius:8px;padding:4px 9px;background:var(--paper);color:var(--teal);cursor:pointer}
+.cardgauge .cg-scrub .cg-live.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+.cardgauge .cg-segsel{text-align:center;margin:8px 0 0;font-family:var(--mono);font-size:11.5px;color:var(--teal);min-height:15px}
+.cardgauge .cg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:7px;margin-top:10px}
+.cardgauge .cg-tile{background:#f1f6f5;border:1px solid #e2ebe9;border-radius:11px;padding:8px 6px;text-align:center}
+.cardgauge .cg-tile .k{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.cardgauge .cg-tile .v{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--ink);margin-top:2px;line-height:1.12}
+.cardgauge .cg-tile .v small{font-size:9.5px;color:var(--muted);font-weight:400;font-family:var(--body)}
+.cardgauge .cg-tile .v.late{color:#c0392b}.cardgauge .cg-tile .v.early{color:#2e8b57}
+.cardgauge .cg-logrow{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:10px}
+.cardgauge .cg-lbtn{font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;border:none;border-radius:9px;padding:8px 12px;color:#fff;background:var(--teal)}
+.cardgauge .cg-lbtn.amber{background:var(--brass)}.cardgauge .cg-lbtn.dk{background:#163038}.cardgauge .cg-lbtn.sec{background:#fff;color:var(--teal);border:1px solid var(--line)}
+.cardgauge .cg-logout{flex-basis:100%;font-family:var(--mono);font-size:11.5px;color:var(--ink);line-height:1.6;margin-top:2px}
+.cardgauge .cg-logout .a{color:var(--teal);font-weight:700}.cardgauge .cg-logout .bad{color:#c0392b;font-weight:700}
+.cardgauge .cg-foot{text-align:center;margin-top:8px;font-size:11.5px;color:var(--muted)}
+@media(max-width:640px){.cardgauge .cg-around{flex-direction:column;gap:12px}.cardgauge .cg-center{width:100%;max-width:440px}.cardgauge .cg-col{max-width:none;width:100%}.cardgauge .cg-map{max-width:none;width:100%;flex-basis:auto}.cardgauge .cg-tiles{grid-template-columns:repeat(3,1fr)}}
+.maptop.mbtok{margin-top:8px}#mbToken{flex:1;min-width:200px;font-family:var(--mono);font-size:12.5px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink)}
+.legstats{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 22px;margin:2px 0 10px}.legstat{display:flex;flex-direction:column;line-height:1.02}.legstat .lsv{font-family:var(--disp);font-weight:700;font-size:23px;color:var(--ink)}.legstat .lsl{font-family:var(--mono);font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-top:3px}.legstat.dist .lsv{color:var(--teal)}.legstat.time .lsv{color:var(--brass)}.legstats .real{align-self:center}
+input,select,textarea,input[type=text],input[type=number],input[type=date],input[type=time]{font-size:16px!important}
+.stayfields{display:grid;grid-template-columns:1fr 1fr;gap:11px 12px;margin-top:15px;padding-top:14px;border-top:1px solid var(--line)}
+.conflink{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:12px;color:var(--teal);text-decoration:none;font-weight:700}.conflink:hover{text-decoration:underline}
+input[type=file]{display:none}
+.tb-overlay{position:fixed;inset:0;z-index:2000;background:rgba(20,38,43,.55);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}.tb-overlay[hidden]{display:none}.tb-panel{background:var(--paper);max-width:640px;width:100%;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.4);padding:22px 22px 26px;position:relative;margin:auto}.tb-x{position:absolute;top:10px;right:14px;border:none;background:transparent;font-size:26px;line-height:1;color:var(--muted);cursor:pointer}.tb-head{font-family:var(--disp);font-size:24px;font-weight:800;color:var(--ink)}.tb-subhead{color:var(--muted);font-size:14px;margin:6px 0 4px;line-height:1.45}.tb-sec{border-top:1px solid var(--line);padding-top:14px;margin-top:16px}.tb-legend{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass-soft);margin-bottom:10px}.tb-count{background:var(--panel);color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px}.tb-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 12px}.tb-f{display:flex;flex-direction:column;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);gap:4px}.tb-f.wide{grid-column:1/-1}.tb-f.check{flex-direction:row;align-items:center;text-transform:none;font-size:13px;font-family:var(--body);letter-spacing:0;gap:8px;color:var(--ink)}.tb-f input,.tb-addgrid input,.tb-addgrid select{font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-family:var(--body);color:var(--ink);width:100%}.tb-f.check input{width:auto}.tb-stoplist{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:6px}.tb-stoplist li{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}.tb-stoplist .tb-sname{font-weight:700;color:var(--ink);flex:1}.tb-stoplist .tb-sdate{color:var(--muted);font-family:var(--mono);font-size:11px}.tb-stoplist .tb-stype{color:var(--teal);font-family:var(--mono);font-size:10px;text-transform:uppercase}.tb-stoplist .tb-rm{border:none;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;line-height:1}.tb-addgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tb-addgrid #tbStopName,.tb-addgrid #tbStopAddr,.tb-addgrid #tbAddStop{grid-column:1/-1}.tb-btn{font-family:var(--mono);font-size:13px;letter-spacing:.04em;border:1px solid var(--teal);background:#fff;color:var(--teal);padding:11px 14px;border-radius:9px;cursor:pointer;font-weight:700}.tb-btn.primary{background:var(--teal);color:#fff;border-color:var(--teal)}.tb-btn:disabled{opacity:.6;cursor:default}.tb-hint{font-size:12px;color:var(--muted);margin-top:8px;min-height:16px}.tb-actions{margin-top:20px;display:flex;justify-content:flex-end}
+/* ---------- map-first stop picker ---------- */
+#tbMap{height:320px;border-radius:10px;border:1px solid var(--line);background:#dfe7e6}
+.tb-maptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:9px}
+.tb-maptools .sp{flex:1}
+.tb-mode{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:7px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:#fff;cursor:pointer;user-select:none}
+.tb-mode.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.tb-minibtn{font-family:var(--mono);font-size:11px;letter-spacing:.05em;border:1px solid var(--line);background:#fff;color:var(--teal);border-radius:8px;padding:7px 11px;cursor:pointer}
+.tb-maphint{font-size:12.5px;color:var(--muted);margin-top:8px;min-height:17px;line-height:1.45}
+.tb-confirm{margin-top:10px;border:1px solid var(--brass);background:#fdf7ec;border-radius:11px;padding:12px}
+.tb-confirm[hidden]{display:none}
+.tb-cname{font-family:var(--disp);font-weight:800;font-size:17px;color:var(--ink);margin-bottom:9px}
+.tb-crow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tb-crow .wide{grid-column:1/-1}
+.tb-crow input,.tb-crow select{font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;width:100%;font-family:var(--body);color:var(--ink)}
+.tb-cbtns{display:flex;gap:8px;grid-column:1/-1;margin-top:2px}
+.tb-cbtns .tb-btn{flex:1}
+.tb-stoplist .tb-pin{flex:0 0 21px;width:21px;height:21px;border-radius:50%;background:var(--brass);color:#fff;font:700 11px/21px var(--mono);text-align:center}
+.tb-stoplist .tb-pin.auto{background:#fff;color:var(--brass);border:1px solid var(--brass);line-height:19px}
+.tb-stoplist .tb-mv{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;line-height:1;padding:3px 2px}
+.tb-stoplist .tb-mv:hover{color:var(--teal)}
+.tb-planstat{display:flex;flex-wrap:wrap;gap:8px;margin:9px 0 2px}
+.tb-ps{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:7px 11px;min-width:82px}
+.tb-ps .k{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tb-ps .v{font-family:var(--disp);font-weight:700;font-size:17px;color:var(--ink);margin-top:2px}
+.tb-planout{margin-top:4px;font-size:13px;color:var(--ink);line-height:1.55}
+.tb-planout .list{margin-top:7px;font-family:var(--mono);font-size:12px;line-height:1.8}
+.tb-warnmsg{display:block;color:#8a1c24;font-weight:600;margin-top:6px}
+.tb-dim{color:var(--muted);font-size:12px;margin-top:5px}
+/* ---------- over-limit day warnings ---------- */
+.warnbanner{background:#fdf4e6;border:1px solid var(--brass);border-radius:11px;padding:11px 14px;margin-bottom:15px;font-size:13.5px;line-height:1.55}
+.warnbanner b{color:#7a560f}
+.daywarn{margin:11px 0 2px;border:1px solid var(--brass);background:#fdf4e6;border-radius:11px;padding:11px 13px;font-size:13px;line-height:1.55}
+.daywarn b{color:#7a560f}
+.daywarn .dwbtns{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.daywarn button{font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;border-radius:8px;padding:7px 12px;border:1px solid var(--brass);background:var(--brass);color:#fff}
+.daywarn button.sec{background:#fff;color:var(--brass)}
+.daywarn .dwout{margin-top:9px;font-size:12.5px;color:var(--ink);line-height:1.7}
+/* ---------- click-to-add on the main map ---------- */
+#map.addmode-on{outline:3px solid var(--brass);outline-offset:-3px;cursor:crosshair}
+#map.addmode-on .leaflet-container{cursor:crosshair}
+.mapadd{min-width:212px;font-family:var(--body)}
+.mapadd .ma-name{font-family:var(--disp);font-weight:800;font-size:15px;color:var(--ink);margin-bottom:7px}
+.mapadd .ma-in{width:100%;font-size:14px;padding:7px 8px;margin-bottom:6px;border:1px solid var(--line);border-radius:7px;background:#fff;font-family:var(--body);color:var(--ink)}
+.mapadd .ma-note{font-size:11.5px;color:var(--muted);line-height:1.45;margin:-1px 0 7px}
+.mapadd .ma-note b{color:var(--teal)}
+.mapadd .ma-btns{display:flex;gap:6px}
+.mapadd .ma-btns button{flex:1;font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;border-radius:7px;padding:7px 9px;border:1px solid var(--teal);background:var(--teal);color:#fff}
+.mapadd .ma-btns button.ma-cx{background:#fff;color:var(--teal)}
+.tb-stoplist .tb-pin.dest{background:var(--panel);color:#fff;border:none;line-height:21px}
+.tb-stoplist li.destrow{border-color:var(--panel);background:#eef3f2}
+.tb-nights{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto}
+.tb-nights button{border:1px solid var(--line);background:#fff;color:var(--teal);width:21px;height:21px;border-radius:6px;font-size:13px;line-height:1;cursor:pointer;padding:0}
+.tb-nights button:hover{border-color:var(--teal)}
+.tb-nights .n{font-family:var(--mono);font-size:11px;color:var(--ink);min-width:44px;text-align:center}
+/* the day strip on each card — make it read as tappable */
+.ribbon .rday[data-day]{cursor:pointer;position:relative;transition:transform .12s,box-shadow .12s}
+.ribbon .rday[data-day]:hover{outline:1px solid var(--brass);outline-offset:-1px;transform:translateY(-1px);box-shadow:0 2px 6px rgba(20,38,43,.16)}
+.ribbon .rday[data-day]:active{transform:translateY(0)}
+.ribbon .rday[data-day]::after{content:"";position:absolute;left:22%;right:22%;bottom:1px;height:1.5px;border-radius:2px;background:currentColor;opacity:.24}
+.ribbon .rday--cur[data-day]::after,.ribbon .rday--wed[data-day]::after{opacity:.5}
+.ribbon .rday[data-day]:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.ribbon-cap{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;margin:-8px 0 10px;opacity:.85}
+.stop.flash .card{box-shadow:0 0 0 3px var(--brass),var(--shadow)}
+/* plain-language weather line under each day's dial */
+.cg-wx{margin-top:10px}
+.wxstrip{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 8px;font-size:12.5px;color:var(--ink);background:#f6f9f8;border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;line-height:1.5}
+.wxstrip .wxc{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.wxstrip .wxc b{font-family:var(--disp);font-size:15px}
+.wxstrip .wxc i{font-style:normal;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.wxstrip .wxsep{color:var(--brass);font-weight:700}
+.wxstrip.pending{color:var(--muted);font-family:var(--mono);font-size:11.5px}
+.wxstrip.warn{background:#fdf4e6;border-color:var(--brass);color:#7a560f;font-size:12px}
+.wxstrip .wxwhy{color:var(--muted);font-family:var(--mono);font-size:10.5px}
+.wxstrip .wxretry{font-family:var(--body);font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--brass);background:#fff;color:#7a560f;border-radius:7px;padding:3px 9px}
+/* ---------- printable itinerary ---------- */
+#printSheet{display:none}
+@media print{
+  header.top,nav.sticky,main.wrap,footer,.tb-overlay{display:none!important}
+  html,body{background:#fff!important;color:#000!important;font-size:10.5pt}
+  #printSheet{display:block;padding:0}
+  .phead{border-bottom:2.5pt solid #14262b;padding-bottom:7pt;margin-bottom:9pt}
+  .ptitle{font-family:var(--disp);font-size:20pt;font-weight:800;line-height:1.1}
+  .pmeta{font-family:var(--mono);font-size:8.5pt;color:#555;margin-top:4pt;letter-spacing:.04em}
+  .pstats{display:flex;flex-wrap:wrap;gap:4pt 16pt;margin-bottom:9pt;font-size:9.5pt;color:#333}
+  .pstats b{font-family:var(--disp);font-size:12pt;color:#000}
+  .ptable{width:100%;border-collapse:collapse;font-size:9pt}
+  .ptable th{text-align:left;font-family:var(--mono);font-size:7.5pt;letter-spacing:.09em;text-transform:uppercase;
+    color:#444;border-bottom:1pt solid #000;padding:4pt 5pt}
+  .ptable td{padding:5pt;border-bottom:.5pt solid #ccc;vertical-align:top}
+  .ptable tr.psec td{background:#eee;font-family:var(--disp);font-weight:700;font-size:9.5pt;
+    letter-spacing:.03em;padding:4pt 5pt;border-bottom:1pt solid #999}
+  .ptable tr.prest td{color:#555;font-style:italic}
+  .ptable tr{page-break-inside:avoid}
+  .ptable .pd{white-space:nowrap;font-family:var(--mono);font-size:8.5pt;width:12%}
+  .ptable .pnum{text-align:right;font-family:var(--mono);font-size:8.5pt;white-space:nowrap}
+  .ptable .ph{width:20%;font-size:8.5pt}
+  .psub{color:#666;font-size:7.5pt;font-family:var(--mono)}
+  .pev{border:.5pt solid #000;border-radius:6pt;padding:0 4pt;font-size:7.5pt;font-family:var(--mono);text-transform:uppercase}
+  .pfoot{margin-top:10pt;padding-top:6pt;border-top:.5pt solid #999;font-size:7.5pt;color:#555;line-height:1.5}
+  @page{margin:14mm}
+}
+.stop.restday .node.rest{background:#fff;color:var(--teal);border:2px solid var(--teal);font-size:9px}
+.stop.restday .card{background:#fbfdfc;border-style:dashed}
+.restline{display:flex;flex-wrap:wrap;align-items:baseline;gap:9px;font-size:15px;color:var(--ink)}
+.restline b{font-family:var(--disp);font-size:17px}
+.restday-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);background:#e9f1f1;border-radius:999px;padding:3px 9px}
+.restwhich{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.restwx{margin:11px 0 3px}
+.field input.nights{width:64px}
+.field input.evin{min-width:150px}
+.field.lunchfield{position:relative}
+.field input.lunchin{min-width:190px}
+.field .lunchstate{font-family:var(--mono);font-size:10px;color:var(--teal);margin-top:2px;min-height:12px}
+.badge.nights{background:#e9f1f1;color:var(--teal)}
+@media(max-width:600px){#tbMap{height:260px}.tb-crow{grid-template-columns:1fr}.rday{padding:7px 2px 8px}}</style>
+</head>
+<body>
+<div id="tripBuilder" class="tb-overlay" hidden>
+  <div class="tb-panel">
+    <button class="tb-x" id="tbClose" aria-label="Close">×</button>
+    <div class="tb-head">Plan a road trip</div>
+    <div class="tb-subhead">Start with where you're leaving from and where you have to be. We route it, work out how many driving days that takes, and suggest a town to sleep in each night — then you add or move anything you like.</div>
+    <div class="tb-sec">
+      <div class="tb-legend">Plan it for me</div>
+      <div class="tb-grid">
+        <label class="tb-f wide">Starting from<input id="tbStart" placeholder="123 Main St, City, ST"></label>
+        <label class="tb-f wide">Where you're headed<input id="tbApDest" placeholder="City, ST"></label>
+        <label class="tb-f">Leaving on<input id="tbApFrom" type="date"></label>
+        <label class="tb-f">Must arrive by<input id="tbApBy" type="date"></label>
+        <label class="tb-f">Max drive per day (hrs)<input id="tbMaxDay" type="number" step="0.5" min="1" value="8"></label>
+        <label class="tb-f">Pacing<select id="tbApPace"><option value="even">Spread evenly over the days I have</option><option value="fast">Fewest days at my max</option></select></label>
+      </div>
+      <div style="margin-top:11px"><button id="tbApGo" class="tb-btn primary">Suggest my overnight stops &rarr;</button></div>
+      <div class="tb-planout" id="tbApOut"></div>
+    </div>
+    <div class="tb-sec">
+      <div class="tb-legend">Pick stops on the map</div>
+      <div class="tb-subhead" style="margin-top:-2px">Drop stops anywhere, in any order — each one slots into the route where it makes the least detour. Use the arrows in the list to override.</div>
+      <div class="tb-maptools">
+        <span class="tb-mode" id="tbModeStart" data-mode="start">Set start</span>
+        <span class="tb-mode" id="tbModeDest" data-mode="dest">Set destination</span>
+        <span class="tb-mode on" id="tbModeStop" data-mode="stop">Add stop</span>
+        <span class="sp"></span>
+        <button type="button" class="tb-minibtn" id="tbAutoOrder">Auto-order</button>
+        <button type="button" class="tb-minibtn" id="tbFit">Fit route</button>
+        <button type="button" class="tb-minibtn" id="tbClearStops">Clear stops</button>
+      </div>
+      <div id="tbMap"></div>
+      <div class="tb-maphint" id="tbMapHint">Tap anywhere on the map to drop a stop — we look up the nearest town and ask you to confirm.</div>
+      <div class="tb-planstat" id="tbSum"></div>
+      <div class="tb-confirm" id="tbConfirm" hidden>
+        <div class="tb-cname" id="tbCName">&hellip;</div>
+        <div class="tb-crow">
+          <input class="wide" id="tbCLabel" placeholder="Stop name">
+          <select id="tbCType"><option value="overnight">Overnight stay</option><option value="waypoint">Pickup / pass-through</option></select>
+          <input id="tbCNights" type="number" min="1" value="1" title="Nights here">
+          <input id="tbCDate" type="date">
+          <input class="wide" id="tbCHotel" placeholder="Hotel / booking (optional)">
+          <div class="tb-cbtns"><button type="button" class="tb-btn primary" id="tbCAdd">Add this stop</button><button type="button" class="tb-btn" id="tbCCancel">Cancel</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="tb-sec">
+      <div class="tb-legend">Your stops, in order <span class="tb-count" id="tbCount">0</span></div>
+      <ol class="tb-stoplist" id="tbStopList"></ol>
+      <div class="tb-addgrid">
+        <input id="tbStopName" placeholder="Stop name (e.g. Savannah, GA)">
+        <input id="tbStopAddr" placeholder="Address or place to look up">
+        <input id="tbStopDate" type="date">
+        <input id="tbStopHotel" placeholder="Hotel / booking (optional)">
+        <select id="tbStopType"><option value="overnight">Overnight stay</option><option value="waypoint">Pickup / pass-through</option><option value="dest">Set as final destination</option></select><input id="tbStopNights" type="number" min="1" value="1" title="Nights here">
+        <button id="tbAddStop" class="tb-btn">+ Add stop</button>
+      </div>
+      <div class="tb-hint" id="tbGeoHint">Tip: include city and state so we find the right place. Use &minus;/+ on any stop to turn one night into several.</div>
+    </div>
+    <div class="tb-sec">
+      <div class="tb-legend">Trip basics</div>
+      <div class="tb-grid">
+        <label class="tb-f wide">Trip name<input id="tbName" placeholder="Summer road trip"></label>
+        <label class="tb-f">Departs<input id="tbDepart" type="time" value="08:00"></label>
+        <label class="tb-f">MPG<input id="tbMpg" type="number" value="22"></label>
+        <label class="tb-f">Tank (gal)<input id="tbTank" type="number" value="14"></label>
+        <label class="tb-f">Gas $/gal<input id="tbGas" type="number" step="0.01" value="3.50"></label>
+        <label class="tb-f check wide"><input type="checkbox" id="tbRound"> Round trip — return to the start at the end</label>
+      </div>
+    </div>
+    <div class="tb-sec">
+      <div class="tb-legend">Pacing &amp; breaks</div>
+      <div class="tb-grid">
+        <label class="tb-f">Drive before a break (hrs)<input id="tbBreakEvery" type="number" step="0.5" min="0.5" value="2"></label>
+        <label class="tb-f">Break length (min)<input id="tbBreakLen" type="number" min="0" value="15"></label>
+        <label class="tb-f">Meal-stop length (min)<input id="tbMealLen" type="number" min="0" value="60"></label>
+        <label class="tb-f check wide"><input type="checkbox" id="tbMeal" checked> Add a longer lunch / dinner stop on long days</label>
+      </div>
+    </div>
+    <div class="tb-actions"><button id="tbBuild" class="tb-btn primary">Build my trip →</button></div>
+  </div>
+</div>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Road Trip Planner</div>
+    <h1>Plan a road trip</h1>
+    <p class="sub">Drop stops on the map in any order — the planner threads them into a route and works out drive times, fuel, breaks, and the weather you'll actually be driving through each day. Everything saves to this browser.</p>
+    <div class="chips" id="headChips"></div>
+    <div class="toolbar">
+      <button class="tbtn" id="tbNewTrip">+ New trip</button>
+      <label class="roundtoggle"><input type="checkbox" id="roundTrip" checked> Include return leg in totals</label>
+      <span class="spacer"></span>
+      <span class="savestate"><span class="savedot"></span><span id="saveLabel">Saved</span></span>
+      <button class="tbtn" id="printBtn">Print itinerary</button>
+      <button class="tbtn" id="shareBtn">Copy share link</button>
+      <span class="savestate" id="shareNote"></span>
+      <button class="tbtn" id="exportBtn">Export data</button>
+      <button class="tbtn" id="importBtn">Import data</button>
+      <input type="file" id="importFile" accept="application/json">
+      <button class="tbtn warn" id="resetBtn">Reset all</button>
+    </div>
+  </div>
+</header>
+
+<nav class="sticky">
+  <div class="wrap">
+    <a href="#map-sec">Map</a>
+    <a href="#route-sec">Route &amp; day plans</a>
+    <a href="#drive-sec">Drive times</a>
+    <a href="#budget-sec">Budget &amp; gas</a>
+    <a href="#live-sec">Where am I now</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <section id="map-sec">
+    <div class="sec-head"><span class="sec-num">01</span><h2>The route</h2></div>
+    <div class="maptop">
+      <button class="routebtn solid" id="refreshRoutes">Refresh routes</button>
+      <button class="routebtn" id="mapAddMode">+ Add a stop by tapping the map</button><button class="routebtn" id="optimizeOrder">Re-order for the shortest drive</button>
+      <a class="routebtn" id="fullGmaps" href="#" target="_blank" rel="noopener">Open full route in Google Maps</a>
+      <span class="spacer"></span>
+      <span class="routestatus" id="routeStatus">Loading routes…</span>
+    </div>
+    <div class="maptop mbtok"><input id="mbToken" type="text" placeholder="Mapbox token (pk.…) — optional, enables live-traffic times"><button class="routebtn" id="mbTokenSave">Save token</button><span class="routestatus" id="mbTokenNote"></span></div>
+    <div id="map"></div>
+    <div class="maplegend">
+      <span><span class="lgline"></span> Northbound (booked)</span>
+      <span><span class="lgline ret"></span> Return (suggested)</span>
+      <span><span class="lgdot"></span> Overnight stop</span>
+      <span><span class="lgrest"></span> Planned rest / lunch stop</span>
+      <span><span class="lgyou"></span> You are here</span>
+    </div>
+  </section>
+
+  <section id="route-sec">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Stops &amp; day plans</h2></div>
+    <p class="sec-note">Each driving day shows departure, a break every 2 hours, a 1-hour lunch near midday, and arrival. Tap a leg's Maps button for live turn-by-turn. Times go real once the road routes load.</p>
+    <div id="warnBanner"></div>
+    <div class="subhead">Outbound</div>
+    <div class="routewrap" id="routeOut"></div>
+    <div class="subhead ret" id="retHead">The way home</div>
+    <div class="maptop" id="retActions"></div>
+    <div class="routewrap" id="routeRet"></div>
+  </section>
+
+  <section id="drive-sec">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Drive times</h2></div>
+    <p class="sec-note">"Pure driving" is wheels turning. "With stops" adds your 2-hour breaks and the midday lunch.</p>
+    <div class="panel">
+      <div class="settingsrow">
+        <div class="field"><label>Break every (hours)</label><input type="number" id="breakIntervalH" class="num" min="1" step="0.5"></div>
+        <div class="field"><label>Break length (min)</label><input type="number" id="breakLen" class="num" min="0" step="5"></div>
+        <div class="field"><label>Lunch length (min)</label><input type="number" id="lunchLen" class="num" min="0" step="15"></div>
+        <div class="field"><label>Max drive / day (hrs)</label><input type="number" id="maxDailyH" class="num" min="1" step="0.5"></div>
+        <div class="field"><label>Default departure</label><input type="time" id="defaultDepart" class="time"></div>
+        <div class="field"><label>Tank (gal)</label><input type="number" id="tankGal" class="num" min="1" step="0.1"></div>
+        <div class="field"><label>Refuel at (% left)</label><input type="number" id="reservePct" class="num" min="0" max="60" step="5"></div>
+        <label class="toggle-stops"><input type="checkbox" id="showWithStops" checked> Show times with stops</label>
+      </div>
+      <table id="driveTable"><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="budget-sec">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Budget &amp; gas</h2></div>
+    <p class="sec-note">Tap a status pill to flip Estimate ↔ Known. Fuel updates itself from miles, mpg and gas price.</p>
+    <div class="panel">
+      <div class="gasbox">
+        <div class="row">
+          <div class="field"><label>Gas price ($/gal)</label><input type="number" id="gasPrice" class="num" min="0" step="0.01" style="text-align:right"></div>
+          <button class="routebtn" id="fetchGas">Fetch current EIA average</button>
+          <button class="linkbtn" id="toggleKey">Set EIA key</button>
+        </div>
+        <div class="row" id="keyRow" style="display:none;margin-top:10px">
+          <input class="gaskey" id="eiaKey" placeholder="Paste your free EIA API key">
+          <button class="routebtn" id="saveKey">Save key</button>
+        </div>
+        <div class="gasmsg" id="gasMsg">Live price uses the U.S. EIA weekly East Coast (PADD&nbsp;1) regular-gasoline average — the closest free source to "live." Get a free key at <a href="https://www.eia.gov/opendata/register.php" target="_blank" rel="noopener">eia.gov/opendata</a>. It stays in this browser only. Or just type today's price by hand.</div>
+      </div>
+      <div class="settingsrow">
+        <div class="field"><label>Fuel economy (mpg)</label><input type="number" id="mpg" min="1" step="0.5"></div>
+        <div class="field"><label>Trip miles feeding fuel</label><input type="number" id="fuelMiles" min="0" step="1"></div>
+      </div>
+      <table id="budgetTable"><tbody></tbody></table>
+      <button class="addbtn" id="addLine">+ Add a budget line</button>
+      <div class="splitbar" id="splitBar"><div class="sk" style="width:50%"></div><div class="se" style="width:50%"></div></div>
+      <div class="totals">
+        <div class="t known"><div class="k">Known so far</div><div class="v mono" id="totKnown">$0</div></div>
+        <div class="t est"><div class="k">Still estimated</div><div class="v mono" id="totEst">$0</div></div>
+        <div class="t grand"><div class="k">Projected total</div><div class="v mono" id="totGrand">$0</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="live-sec">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Where am I now</h2></div>
+    <p class="sec-note">On a travel day, this finds you, pins the map, and tells you the next stop and roughly how far.</p>
+    <div class="live">
+      <div id="todayBox"></div>
+      <div class="row">
+        <button class="bigbtn" id="locateBtn">Use my location</button>
+        <button class="bigbtn sec" id="clearLoc">Clear</button>
+      </div>
+      <div class="livestatus" id="liveStatus"></div>
+      <div class="livecards" id="liveCards" style="display:none"></div>
+      <div class="manualpick" id="manualPick" style="display:none">Location blocked? Set it by hand:<select id="manualSel"></select></div>
+      <p class="hint">Distance to the next stop is a straight-line estimate padded for roads, then divided by ~60 mph — a gut check, not navigation. For real turn-by-turn, use the Maps buttons on each leg above.</p>
+    </div>
+  </section>
+
+</main>
+
+<div class="netbar" id="netbar" role="status"></div>
+
+<div id="printSheet" aria-hidden="true"></div>
+
+<footer>
+  <div class="wrap">
+    <p class="fnote"><b>Real directions vs. this planner.</b> The map draws the actual road route and real drive times from a free routing service (OSRM). For live, turn-by-turn navigation with traffic, the per-leg <b>Open in Google / Apple Maps</b> buttons launch your phone's map app — that's the right tool on the road.</p>
+    <p class="fnote" style="margin-top:10px"><b>Saving &amp; moving data.</b> Everything saves to this browser on this device. Use <b>Export</b> / <b>Import</b> to carry numbers between your phone and laptop. Your EIA key is stored separately and is never included in the export. <b>Reset all</b> restores defaults.</p>
+    <p class="fnote" style="margin-top:10px"><b>If something won't load.</b> Real roads and live gas need internet and the data providers allowing browser requests; opening the file straight from disk on some desktop browsers can block them. The page still works fully on estimates and manual entry. Map data &copy; OpenStreetMap, routing by OSRM, prices by U.S. EIA.</p>
+  </div>
+</footer>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+(function(){
+"use strict";
+var STORAGE_KEY="rt_builder_v1", EIA_KEY_STORE="mb_roadtrip_eia_key";
+var MAPBOX_TOKEN_DEFAULT=""; /* <-- paste your Mapbox token here (pk.****) for live traffic-aware drive times. Blank = free OSRM (real roads, no traffic). */
+var MAPBOX_TOKEN=(function(){try{var t=(localStorage.getItem("mb_mapbox_token")||"").trim();return t||MAPBOX_TOKEN_DEFAULT;}catch(e){return MAPBOX_TOKEN_DEFAULT;}})();
+/* Any stop can carry an event label ("Wedding", "Ferry", "Check-in"); the day strip marks it. */
+function eventsByDay(){
+  var m={};
+  ["northbound","returnLeg"].forEach(function(a){
+    (data[a]||[]).forEach(function(s){
+      if(s.event&&s.date)m[s.date]=s.event;
+    });
+  });
+  return m;
+}
+
+function defaults(){return {settings:{mpg:22,gasPrice:3.50,fuelMiles:0,roundTrip:false,showWithStops:true,tankGal:14,reservePct:20,breakIntervalH:2,breakLen:15,lunchLen:60,lunchMinDrive:180,maxDailyH:8,defaultDepart:"08:00"},northbound:[],returnLeg:[],budget:[]};}
+function setupTripBuilder(){
+  var TBw=[];                      /* the stops in between, in travel order */
+  var tbStart=null,tbDest=null;    /* {lat,lng,name} for each end of the trip */
+  var tbMap=null,tbMarkers=[],tbLine=null,tbProv=null,tbProvLoc=null;
+  var tbMode="stop",tbRoute=null,tbPrevTimer=null,tbManualOrder=false;
+  function tq(id){return document.getElementById(id);}
+  function tbOpen(){var o=tq("tripBuilder");if(o)o.hidden=false;setTimeout(tbInitMap,60);}
+  function tbClose(){var o=tq("tripBuilder");if(o)o.hidden=true;}
+  function tbHint(t){var e=tq("tbGeoHint");if(e)e.textContent=t;}
+  function tbMapHint(t){var e=tq("tbMapHint");if(e)e.textContent=t;}
+  function tbGeocode(query){return geocode(query);}
+  function nightsOf(st){return Math.max(1,Math.round(+st.nights||1));}
+
+  /* ---------- the picker map ---------- */
+  function tbInitMap(){
+    var host=tq("tbMap");
+    if(!host)return;
+    if(typeof L==="undefined"){
+      host.innerHTML='<div style="padding:26px;text-align:center;color:#65797d;font-size:13px">The map library didn’t load — you can still type stops in below.</div>';
+      return;
+    }
+    if(tbMap){setTimeout(function(){try{tbMap.invalidateSize();}catch(e){}},60);return;}
+    tbMap=L.map(host,{scrollWheelZoom:true}).setView([39.5,-98.35],4);   /* continental US */
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap"}).addTo(tbMap);
+    tbMap.on("click",function(e){tbMapClick(e.latlng);});
+    setTimeout(function(){try{tbMap.invalidateSize();}catch(e){}tbDraw();},90);
+  }
+  function tbSetMode(m){
+    tbMode=m;
+    [["start","tbModeStart"],["dest","tbModeDest"],["stop","tbModeStop"]].forEach(function(x){
+      var el=tq(x[1]);
+      if(el)el.classList.toggle("on",m===x[0]);
+    });
+    tbMapHint(m==="start"?"Tap the map where you’re leaving from."
+      :m==="dest"?"Tap the map where the trip ends up."
+      :"Tap anywhere on the map to drop a stop — order doesn’t matter, we slot it into the route for you.");
+  }
+  function tbClearProv(){if(tbProv&&tbMap){try{tbMap.removeLayer(tbProv);}catch(e){}}tbProv=null;}
+  function tbMapClick(ll){
+    if(!tbMap)return;
+    tbClearProv();
+    var col=(tbMode==="stop")?getCss("--brass"):getCss("--teal");
+    tbProv=L.marker([ll.lat,ll.lng],{icon:L.divIcon({className:"",iconSize:[28,28],iconAnchor:[14,14],
+      html:'<div style="width:26px;height:26px;border-radius:50%;background:#fff;border:3px dashed '+col+'"></div>'})}).addTo(tbMap);
+    tbMapHint("Looking up that spot…");
+    revGeocode(ll.lat,ll.lng).then(function(r){
+      if(tbMode==="start"){
+        tbStart={lat:r.lat,lng:r.lng,name:r.name};
+        var si=tq("tbStart");if(si)si.value=r.label||r.name;
+        tbClearProv();tbSetMode("stop");tbAutoOrder(true);tbDraw();
+        tbMapHint("Start set to "+r.name+".");
+      } else if(tbMode==="dest"){
+        tbDest={lat:r.lat,lng:r.lng,name:r.name,type:"dest",nights:1,hotel:"",date:(tbDest&&tbDest.date)||""};
+        var di=tq("tbApDest");if(di)di.value=r.name;
+        tbClearProv();tbSetMode("stop");tbAutoOrder(true);tbRender();tbDraw();
+        tbMapHint("Destination set to "+r.name+".");
+      } else {
+        tbProvLoc=r;
+        tq("tbCName").textContent=r.name;
+        tq("tbCLabel").value=r.name;
+        tq("tbCDate").value="";
+        tq("tbCHotel").value="";
+        tq("tbCNights").value=1;
+        tq("tbConfirm").hidden=false;
+        tbMapHint("Check the details below, or tap the map again to move the pin.");
+        try{tq("tbConfirm").scrollIntoView({block:"nearest",behavior:"smooth"});}catch(e){}
+      }
+    }).catch(function(){
+      tbClearProv();
+      tbMapHint("Couldn’t look that spot up — try again in a second, or type the place in below.");
+    });
+  }
+  function tbPoints(){
+    var p=[];
+    if(tbStart)p.push({lat:+tbStart.lat,lng:+tbStart.lng,name:tbStart.name,role:"start"});
+    TBw.forEach(function(s){p.push({lat:+s.lat,lng:+s.lng,name:s.name,role:"stop"});});
+    if(tbDest)p.push({lat:+tbDest.lat,lng:+tbDest.lng,name:tbDest.name,role:"dest"});
+    return p;
+  }
+  function tbDraw(){
+    if(!tbMap)return;
+    tbMarkers.forEach(function(m){try{tbMap.removeLayer(m);}catch(e){}});tbMarkers=[];
+    if(tbLine){try{tbMap.removeLayer(tbLine);}catch(e){}tbLine=null;}
+    tbRoute=null;
+    var pts=tbPoints(),num=0;
+    pts.forEach(function(p){
+      var isEnd=(p.role!=="stop");
+      var glyph=p.role==="start"?"★":(p.role==="dest"?"◆":String(++num));
+      var bg=isEnd?getCss("--panel"):getCss("--brass");
+      var m=L.marker([p.lat,p.lng],{icon:L.divIcon({className:"",iconSize:[28,28],iconAnchor:[14,14],
+        html:'<div style="width:28px;height:28px;border-radius:50%;background:'+bg+';color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px/28px \'JetBrains Mono\',monospace;text-align:center">'+glyph+'</div>'})}).addTo(tbMap);
+      m.bindPopup('<b>'+esc(p.name)+'</b><br><span style="color:#65797d">'+
+        (p.role==="start"?"start":p.role==="dest"?"destination":"stop "+num)+'</span>'+
+        (p.role==="stop"?'<br><a href="#" data-tbrm="'+(num-1)+'">remove this stop</a>':''));
+      tbMarkers.push(m);
+    });
+    if(pts.length>1){
+      tbLine=L.polyline(pts.map(function(p){return [p.lat,p.lng];}),{color:getCss("--teal"),weight:3,opacity:.7,dashArray:"6,7",interactive:false}).addTo(tbMap);
+      try{tbMap.fitBounds(tbLine.getBounds().pad(0.18));}catch(e){}
+      tbPreviewRoute(pts);
+    } else if(pts.length===1){
+      tbMap.setView([pts[0].lat,pts[0].lng],7);
+    }
+    tbSummary();
+  }
+  /* Straight lines show instantly; the real road route replaces them a moment later. */
+  function tbPreviewRoute(pts){
+    clearTimeout(tbPrevTimer);
+    tbPrevTimer=setTimeout(function(){
+      var want=pts.length;
+      osrmRoute(pts).then(function(rt){
+        if(!rt||!tbMap||tbPoints().length!==want)return;
+        tbRoute=rt;
+        if(tbLine){try{tbMap.removeLayer(tbLine);}catch(e){}}
+        tbLine=L.polyline(rt.coords,{color:getCss("--teal"),weight:4,opacity:.9,interactive:false}).addTo(tbMap);
+        try{tbMap.fitBounds(tbLine.getBounds().pad(0.15));}catch(e){}
+        tbSummary();
+      });
+    },600);
+  }
+  function tbPS(k,v){return '<div class="tb-ps"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>';}
+  function tbLimitMin(){return (+tq("tbMaxDay").value||8)*60;}
+  function tbNightsTotal(){
+    var n=0;
+    TBw.forEach(function(st){if(st.type!=="waypoint")n+=nightsOf(st);});
+    if(tbDest)n+=nightsOf(tbDest);
+    return n;
+  }
+  function tbSummary(){
+    var el=tq("tbSum");
+    if(!el)return;
+    var pts=tbPoints();
+    if(pts.length<2){el.innerHTML="";return;}
+    var r=tbRoute||estRoute(pts);
+    var days=Math.max(1,Math.ceil(r.mins/tbLimitMin()));
+    el.innerHTML=tbPS("Stops",TBw.length+(tbDest?1:0))+tbPS("Distance",Math.round(r.miles).toLocaleString()+" mi")+
+      tbPS("Driving",fmtDur(r.mins))+tbPS("Driving days","≈"+days)+tbPS("Nights",tbNightsTotal())+
+      (r.est?'<div class="tb-dim" style="flex-basis:100%">Straight-line estimate — real roads load once you build the trip.</div>':'');
+  }
+
+  /* ---------- ordering: a new stop slots in wherever it adds the least driving ---------- */
+  function chainLen(list){
+    var pts=[].concat(tbStart?[tbStart]:[],list,tbDest?[tbDest]:[]),d=0;
+    for(var m=1;m<pts.length;m++)d+=haversine(+pts[m-1].lat,+pts[m-1].lng,+pts[m].lat,+pts[m].lng);
+    return d;
+  }
+  function tbInsertAuto(stop){
+    if(!TBw.length){TBw.push(stop);return 0;}
+    var best=TBw.length,bd=Infinity;
+    for(var k=0;k<=TBw.length;k++){
+      var cand=TBw.slice();
+      cand.splice(k,0,stop);
+      var d=chainLen(cand);
+      if(d<bd-1e-9){bd=d;best=k;}
+    }
+    TBw.splice(best,0,stop);
+    tbRefineOrder();          /* crow-flight now, real drive times a moment later */
+    return best;
+  }
+  /* Ask OSRM for the pairwise drive times and re-thread the stops for the shortest trip.
+     Anything the user has dragged into place with the arrows is left alone. */
+  var tbRefineTimer=null;
+  function tbRefineOrder(){
+    if(tbManualOrder||TBw.length<2)return;
+    clearTimeout(tbRefineTimer);
+    tbRefineTimer=setTimeout(function(){
+      var pts=tbPoints();
+      if(pts.length<3)return;
+      var sig=TBw.map(function(s){return s.name;}).join("|");
+      tableOrCrow(pts).then(function(res){
+        if(TBw.map(function(s){return s.name;}).join("|")!==sig)return;   /* list moved on */
+        var hasStart=!!tbStart,hasDest=!!tbDest;
+        var chain=optimizeChain(res.D,pts.length,hasStart,hasDest);
+        var off=hasStart?1:0;
+        var order=chain.filter(function(k){return k>=off&&k<off+TBw.length;});
+        if(order.length!==TBw.length)return;
+        var next=order.map(function(k){return TBw[k-off];});
+        if(next.map(function(s){return s.name;}).join("|")===sig)return;  /* already fastest */
+        TBw=next;
+        tbResequenceDates();tbRender();tbDraw();
+        tbHint("Re-threaded for the shortest drive"+(res.real?"":" (estimated)")+" — ▲▼ to override.");
+      });
+    },400);
+  }
+  /* Re-run the ordering for every stop — used after the start or destination moves. */
+  function tbAutoOrder(quiet){
+    if(TBw.length<2)return;
+    var rest=TBw.slice(),anchor=tbStart||tbDest;
+    if(anchor)rest.sort(function(a,b){
+      return haversine(+anchor.lat,+anchor.lng,+a.lat,+a.lng)-haversine(+anchor.lat,+anchor.lng,+b.lat,+b.lng);
+    });
+    TBw=[];
+    rest.forEach(function(st){
+      if(!TBw.length){TBw.push(st);return;}
+      var best=TBw.length,bd=Infinity;
+      for(var k=0;k<=TBw.length;k++){
+        var cand=TBw.slice();cand.splice(k,0,st);
+        var d=chainLen(cand);
+        if(d<bd-1e-9){bd=d;best=k;}
+      }
+      TBw.splice(best,0,st);
+    });
+    tbResequenceDates();
+    if(!quiet){tbManualOrder=false;tbHint("Re-ordering along the route…");}
+    tbRefineOrder();
+  }
+  /* Dates follow the departure date and how many nights you're staying at each stop. */
+  function tbResequenceDates(){
+    var from=(tq("tbApFrom")&&tq("tbApFrom").value)||"";
+    if(!from)return;
+    var d=0;
+    TBw.forEach(function(st){
+      if(!st.fixed)st.date=shiftISO(from,d);
+      if(st.type!=="waypoint")d+=nightsOf(st);
+    });
+    if(tbDest&&!tbDest.fixed)tbDest.date=shiftISO(from,d);
+  }
+
+  /* ---------- the stop list ---------- */
+  function nightsCtl(idx,st,isDest){
+    if(st.type==="waypoint")return '<span class="tb-nights"><span class="n">pass-through</span></span>';
+    var n=nightsOf(st),key=isDest?'d':idx;
+    return '<span class="tb-nights">'+
+      '<button type="button" data-nm="'+key+'" title="One night fewer">&minus;</button>'+
+      '<span class="n">'+n+' night'+(n>1?'s':'')+'</span>'+
+      '<button type="button" data-np="'+key+'" title="Stay another night">+</button></span>';
+  }
+  function tbRender(){
+    var ol=tq("tbStopList");
+    if(!ol)return;
+    ol.innerHTML="";
+    TBw.forEach(function(st,idx){
+      var li=document.createElement("li");
+      li.innerHTML='<span class="tb-pin'+(st.auto?" auto":"")+'">'+(idx+1)+'</span>'+
+        '<span class="tb-sname"></span><span class="tb-sdate"></span>'+nightsCtl(idx,st,false)+
+        '<button type="button" class="tb-mv" data-up="'+idx+'" title="Move earlier">▲</button>'+
+        '<button type="button" class="tb-mv" data-dn="'+idx+'" title="Move later">▼</button>'+
+        '<button type="button" class="tb-rm" data-rm="'+idx+'" title="Remove">×</button>';
+      li.querySelector(".tb-sname").textContent=st.name;
+      li.querySelector(".tb-sdate").textContent=st.date||"";
+      ol.appendChild(li);
+    });
+    if(tbDest){
+      var d=document.createElement("li");
+      d.className="destrow";
+      d.innerHTML='<span class="tb-pin dest">◆</span><span class="tb-sname"></span><span class="tb-sdate"></span>'+
+        '<span class="tb-stype">destination</span>'+nightsCtl(-1,tbDest,true)+
+        '<button type="button" class="tb-rm" data-rmdest="1" title="Remove">×</button>';
+      d.querySelector(".tb-sname").textContent=tbDest.name;
+      d.querySelector(".tb-sdate").textContent=tbDest.date||"";
+      ol.appendChild(d);
+    }
+    tq("tbCount").textContent=TBw.length+(tbDest?1:0);
+  }
+
+  /* ---------- B2 · plan the whole thing from start + end + arrive-by ---------- */
+  function tbAutoPlan(){
+    var out=tq("tbApOut"),btn=tq("tbApGo");
+    var destQ=(tq("tbApDest").value||"").trim(),startQ=(tq("tbStart").value||"").trim();
+    if(!destQ&&!tbDest){out.innerHTML='<span class="tb-warnmsg">Type where you’re headed first, or tap “Set destination” and click the map.</span>';return;}
+    if(!tbStart&&!startQ){out.innerHTML='<span class="tb-warnmsg">Add where you’re starting from, or tap “Set start” and click the map.</span>';return;}
+    btn.disabled=true;
+    out.textContent="Finding your start and destination…";
+    var pStart=tbStart?Promise.resolve(tbStart)
+      :geocode(startQ).then(function(o){tbStart={lat:o.lat,lng:o.lng,name:o.name};return tbStart;});
+    var pDest=(tbDest&&tbDest.name===destQ)?Promise.resolve(tbDest)
+      :destQ?geocode(destQ).then(function(o){return {lat:o.lat,lng:o.lng,name:o.name};})
+      :Promise.resolve(tbDest);
+    pStart.then(function(a){
+      return pDest.then(function(b){
+        out.textContent="Routing "+a.name+" → "+b.name+"…";
+        return osrmRoute([a,b]).then(function(rt){return [a,b,rt||estRoute([a,b])];});
+      });
+    }).then(function(abr){
+      var a=abr[0],b=abr[1],rt=abr[2];
+      var lim=tbLimitMin(),total=rt.mins;
+      var minDays=Math.max(1,Math.ceil(total/lim));
+      var from=tq("tbApFrom").value,by=tq("tbApBy").value;
+      var availDays=null;
+      if(from&&by){
+        var d1=parseDate(from),d2=parseDate(by);
+        if(d1&&d2)availDays=Math.round((d2-d1)/864e5)+1;   /* both ends are driving days */
+      }
+      var pace=tq("tbApPace").value,days=minDays,tight=false;
+      if(availDays!=null&&availDays>0){
+        if(availDays<minDays){days=availDays;tight=true;}
+        else days=(pace==="even")?availDays:minDays;
+      }
+      var perDay=total/days,fr=[],k;
+      for(k=1;k<days;k++)fr.push(k/days);
+      out.innerHTML=tbPlanStats(rt,days,perDay,tight,lim,availDays)+
+        (fr.length?'<div class="tb-dim">Looking up '+fr.length+' overnight town'+(fr.length>1?'s':'')+' along the route…</div>':'');
+      return Promise.all(fr.map(function(f,idx){
+        var p=polyAt(rt.coords,f);
+        return revGeocode(p[0],p[1]).catch(function(){return {lat:p[0],lng:p[1],name:"Overnight "+(idx+1)};});
+      })).then(function(list){
+        return {a:a,b:b,rt:rt,days:days,perDay:perDay,tight:tight,lim:lim,list:list,from:from,by:by,avail:availDays};
+      });
+    }).then(function(R){
+      tbDest={name:R.b.name,lat:R.b.lat,lng:R.b.lng,type:"dest",nights:(tbDest?nightsOf(tbDest):1),hotel:"",date:""};
+      TBw=R.list.map(function(r){
+        return {name:r.name,lat:r.lat,lng:r.lng,date:"",hotel:"",type:"overnight",nights:1,auto:true};
+      });
+      tq("tbApDest").value=R.b.name;
+      tbResequenceDates();
+      if(!R.from&&R.by&&tbDest)tbDest.date=R.by;
+      tbRender();tbDraw();
+      tq("tbApOut").innerHTML=tbPlanStats(R.rt,R.days,R.perDay,R.tight,R.lim,R.avail)+
+        '<div style="margin-top:7px"><b>Suggested plan</b> — add stops on the map, reorder with ▲▼, or use &minus;/+ to stay extra nights anywhere. Dates follow along.</div>'+
+        '<div class="list">'+TBw.map(function(s,i){
+          return (i+1)+". "+esc(s.name)+(s.date?" · "+fmtDate(s.date):"");
+        }).concat(['◆ '+esc(tbDest.name)+(tbDest.date?" · "+fmtDate(tbDest.date):"")+" · destination"]).join("<br>")+'</div>';
+      btn.disabled=false;
+      tbHint("Plan loaded — "+(TBw.length+1)+" stops ready. Adjust anything, then build the trip.");
+    }).catch(function(){
+      out.innerHTML='<span class="tb-warnmsg">Couldn’t plan that route — check the place names, or try again in a moment.</span>';
+      btn.disabled=false;
+    });
+  }
+  function tbPlanStats(rt,days,perDay,tight,lim,avail){
+    var h=tbPS("Distance",Math.round(rt.miles).toLocaleString()+" mi")+tbPS("Driving",fmtDur(rt.mins))+
+          tbPS("Driving days",days)+tbPS("Per day","≈"+fmtDur(perDay))+tbPS("Overnights",Math.max(0,days-1));
+    var w="";
+    if(tight)w='<span class="tb-warnmsg">Arriving by that date means about '+fmtDur(perDay)+' of driving a day — past your '+fmtDur(lim)+' max. Leave a day earlier, or raise the max drive per day above.</span>';
+    else if(avail!=null&&avail>days)w='<div class="tb-dim">That leaves '+(avail-days)+' spare day'+((avail-days)>1?'s':'')+' before you have to be there — use &minus;/+ in the list to spend them somewhere.</div>';
+    var e=rt.est?'<div class="tb-dim">Road routing was unavailable, so these are straight-line estimates padded for roads.</div>':'';
+    return '<div class="tb-planstat">'+h+'</div>'+w+e;
+  }
+
+  /* ---------- wiring ---------- */
+  [["tbModeStart","start"],["tbModeDest","dest"],["tbModeStop","stop"]].forEach(function(x){
+    var el=tq(x[0]);
+    if(el)el.addEventListener("click",function(){tbSetMode(x[1]);});
+  });
+  var fitBtn=tq("tbFit");
+  if(fitBtn)fitBtn.addEventListener("click",function(){
+    if(!tbMap)return;
+    if(tbLine){try{tbMap.fitBounds(tbLine.getBounds().pad(0.15));}catch(e){}}
+    else tbMap.setView([39.5,-98.35],4);
+  });
+  var aoBtn=tq("tbAutoOrder");
+  if(aoBtn)aoBtn.addEventListener("click",function(){tbAutoOrder(false);tbRender();tbDraw();});
+  var clrBtn=tq("tbClearStops");
+  if(clrBtn)clrBtn.addEventListener("click",function(){TBw=[];tbRender();tbDraw();tbHint("Stops cleared — start and destination kept.");});
+
+  var cType=tq("tbCType");
+  if(cType)cType.addEventListener("change",function(){var n=tq("tbCNights");if(n)n.style.display=this.value==="waypoint"?"none":"";});
+  var cAdd=tq("tbCAdd");
+  if(cAdd)cAdd.addEventListener("click",function(){
+    if(!tbProvLoc)return;
+    var dt=tq("tbCDate").value;
+    var stop={name:(tq("tbCLabel").value||"").trim()||tbProvLoc.name,lat:tbProvLoc.lat,lng:tbProvLoc.lng,
+      date:dt,hotel:(tq("tbCHotel").value||"").trim(),type:tq("tbCType").value,
+      nights:Math.max(1,+tq("tbCNights").value||1),fixed:!!dt};
+    var at=tbInsertAuto(stop);
+    tbResequenceDates();
+    tbProvLoc=null;tbClearProv();
+    tq("tbConfirm").hidden=true;
+    tbRender();tbDraw();
+    tbMapHint("Added as stop "+(at+1)+" of "+TBw.length+" — tap the map again for the next one.");
+  });
+  var cCx=tq("tbCCancel");
+  if(cCx)cCx.addEventListener("click",function(){tbProvLoc=null;tbClearProv();tq("tbConfirm").hidden=true;tbMapHint("Cancelled — tap the map to try another spot.");});
+
+  var apGo=tq("tbApGo");
+  if(apGo)apGo.addEventListener("click",tbAutoPlan);
+  var apFrom=tq("tbApFrom");
+  if(apFrom)apFrom.addEventListener("change",function(){tbResequenceDates();tbRender();});
+
+  var startIn=tq("tbStart");
+  if(startIn)startIn.addEventListener("change",function(){
+    var v=(startIn.value||"").trim();
+    if(!v){tbStart=null;tbDraw();return;}
+    tbHint("Finding your start…");
+    geocode(v).then(function(o){
+      tbStart={lat:o.lat,lng:o.lng,name:o.name};
+      tbHint("Start: "+o.name+" ✓");
+      tbAutoOrder(true);tbRender();tbDraw();
+    }).catch(function(){tbHint("Couldn’t find that start address — add city and state, or tap “Set start” and click the map.");});
+  });
+  var destIn=tq("tbApDest");
+  if(destIn)destIn.addEventListener("change",function(){
+    var v=(destIn.value||"").trim();
+    if(!v){tbDest=null;tbRender();tbDraw();return;}
+    tbHint("Finding your destination…");
+    geocode(v).then(function(o){
+      tbDest={lat:o.lat,lng:o.lng,name:o.name,type:"dest",nights:(tbDest?nightsOf(tbDest):1),hotel:"",date:(tbDest&&tbDest.date)||""};
+      tbHint("Destination: "+o.name+" ✓");
+      tbAutoOrder(true);tbResequenceDates();tbRender();tbDraw();
+    }).catch(function(){tbHint("Couldn’t find that destination — add city and state, or tap “Set destination” and click the map.");});
+  });
+
+  var addBtn=tq("tbAddStop");
+  if(addBtn)addBtn.addEventListener("click",function(){
+    var name=tq("tbStopName").value.trim(),addr=tq("tbStopAddr").value.trim(),query=addr||name;
+    if(!query){tbHint("Enter a stop name or address.");return;}
+    tbHint("Finding “"+query+"”…");addBtn.disabled=true;
+    tbGeocode(query).then(function(loc){
+      var dt=tq("tbStopDate").value,ty=tq("tbStopType").value;
+      var rec={name:name||loc.name||loc.label.split(",")[0],lat:loc.lat,lng:loc.lng,date:dt,
+        hotel:tq("tbStopHotel").value.trim(),type:ty,nights:Math.max(1,+tq("tbStopNights").value||1),fixed:!!dt};
+      if(ty==="dest"){rec.type="dest";tbDest=rec;tbAutoOrder(true);}
+      else tbInsertAuto(rec);
+      tbResequenceDates();
+      tbRender();tbDraw();tbHint("Added “"+query+"” ✓");
+      tq("tbStopName").value="";tq("tbStopAddr").value="";tq("tbStopHotel").value="";addBtn.disabled=false;
+    }).catch(function(){tbHint("Couldn’t find that — try adding city & state.");addBtn.disabled=false;});
+  });
+  var typeSel=tq("tbStopType");
+  if(typeSel)typeSel.addEventListener("change",function(){var n=tq("tbStopNights");if(n)n.style.display=this.value==="waypoint"?"none":"";});
+
+  var list=tq("tbStopList");
+  if(list)list.addEventListener("click",function(e){
+    var t=e.target;
+    if(!t||!t.getAttribute)return;
+    var rm=t.getAttribute("data-rm"),up=t.getAttribute("data-up"),dn=t.getAttribute("data-dn"),
+        nm=t.getAttribute("data-nm"),np=t.getAttribute("data-np"),rd=t.getAttribute("data-rmdest");
+    function done(){tbResequenceDates();tbRender();tbDraw();}
+    if(rd){tbDest=null;done();return;}
+    if(rm!==null&&rm!==undefined&&rm!==""){TBw.splice(+rm,1);done();return;}
+    if(up!==null&&up!==undefined&&up!==""){var i=+up;if(i>0){tbManualOrder=true;var a=TBw[i];TBw[i]=TBw[i-1];TBw[i-1]=a;done();tbHint("Order pinned — “Auto-order” hands it back to the router.");}return;}
+    if(dn!==null&&dn!==undefined&&dn!==""){var j=+dn;if(j<TBw.length-1){tbManualOrder=true;var b=TBw[j];TBw[j]=TBw[j+1];TBw[j+1]=b;done();tbHint("Order pinned — “Auto-order” hands it back to the router.");}return;}
+    if(nm!==null&&nm!==undefined&&nm!==""){
+      var sm=(nm==="d")?tbDest:TBw[+nm];
+      if(sm){sm.nights=Math.max(1,nightsOf(sm)-1);done();}
+      return;
+    }
+    if(np!==null&&np!==undefined&&np!==""){
+      var sp=(np==="d")?tbDest:TBw[+np];
+      if(sp){sp.nights=nightsOf(sp)+1;done();}
+      return;
+    }
+  });
+  /* "remove this stop" inside a map pin's popup */
+  document.addEventListener("click",function(e){
+    var a=e.target&&e.target.getAttribute&&e.target.getAttribute("data-tbrm");
+    if(a===null||a===undefined||a==="")return;
+    e.preventDefault();
+    TBw.splice(+a,1);tbResequenceDates();tbRender();tbDraw();
+  });
+
+  var buildBtn=tq("tbBuild");
+  if(buildBtn)buildBtn.addEventListener("click",function(){
+    var start=tq("tbStart").value.trim();
+    if(!start&&!tbStart){tbHint("Add where you’re starting from first, or tap “Set start” and click the map.");return;}
+    var all=TBw.concat(tbDest?[tbDest]:[]);
+    if(!all.length){tbHint("Add at least one stop — tap the map, type one in, or let the planner suggest them.");return;}
+    buildBtn.disabled=true;buildBtn.textContent="Building…";
+    var dep=tq("tbDepart").value||"08:00";
+    var pStart=tbStart?Promise.resolve({lat:tbStart.lat,lng:tbStart.lng,name:tbStart.name}):tbGeocode(start);
+    pStart.then(function(o){
+      /* the origin's date is the day you pull out of the driveway */
+      var leaveOn=(tq("tbApFrom")&&tq("tbApFrom").value)||"";
+      if(!leaveOn&&all.length&&all[0].date)leaveOn=all[0].date;
+      var nb=[{id:"s0",name:o.name||"Home",hotel:start||"",date:leaveOn,lat:o.lat,lng:o.lng,origin:true,depart:dep}];
+      all.forEach(function(st,i){
+        var e={id:"s"+(i+1),name:st.name,hotel:st.hotel||"",date:st.date||"",lat:st.lat,lng:st.lng,
+               miles:0,mins:0,depart:dep,tentative:true,nights:Math.max(1,+st.nights||1)};
+        if(st.type==="waypoint"){e.waypoint=true;e.dwellMin=120;e.nights=1;}
+        if(e.nights>1)e.note=e.nights+" nights";
+        if(st.auto)e.auto=true;
+        nb.push(e);
+      });
+      data.northbound=nb;data.returnLeg=[];
+      data.settings.tripName=tq("tbName").value.trim();
+      data.settings.mpg=+tq("tbMpg").value||22;
+      data.settings.tankGal=+tq("tbTank").value||14;
+      data.settings.gasPrice=+tq("tbGas").value||3.5;
+      data.settings.defaultDepart=dep;
+      data.settings.roundTrip=tq("tbRound").checked;
+      data.settings.breakIntervalH=+tq("tbBreakEvery").value||2;
+      data.settings.breakLen=+tq("tbBreakLen").value||15;
+      data.settings.lunchLen=+tq("tbMealLen").value||60;
+      data.settings.lunchMinDrive=tq("tbMeal").checked?180:999999;
+      data.settings.maxDailyH=+tq("tbMaxDay").value||8;
+      data.budget=[];
+      all.forEach(function(st){
+        if(st.hotel)data.budget.push({cat:"Lodging",label:st.hotel+" — "+st.name+
+          (nightsOf(st)>1?" ("+nightsOf(st)+" nights)":""),amt:0,status:"est"});
+      });
+      legGeo={};
+      try{saveLegGeo();}catch(e){}
+      try{queueSave();}catch(e){}
+      tbClose();
+      try{renderAll();}catch(e){}
+      try{gaugeWire();}catch(e){}
+      /* a round trip isn't a round trip until the way home exists */
+      if(data.settings.roundTrip){try{planReturnLeg();}catch(e){try{fetchAllRoutes();}catch(e2){}}}
+      else{try{fetchAllRoutes();}catch(e){}}
+      buildBtn.disabled=false;buildBtn.textContent="Build my trip →";
+    }).catch(function(){tbHint("Couldn’t find the start address.");buildBtn.disabled=false;buildBtn.textContent="Build my trip →";});
+  });
+  var closeBtn=tq("tbClose");
+  if(closeBtn)closeBtn.addEventListener("click",tbClose);
+  var newBtn=tq("tbNewTrip");
+  if(newBtn)newBtn.addEventListener("click",function(){TBw=[];tbStart=null;tbDest=null;tbRender();tbOpen();tbDraw();});
+  /* carry the page's saved pacing into the builder so the day math matches */
+  if(tq("tbMaxDay")&&data.settings.maxDailyH)tq("tbMaxDay").value=data.settings.maxDailyH;
+  if(tq("tbName")&&data.settings.tripName)tq("tbName").value=data.settings.tripName;
+  tbSetMode("stop");
+  if(!data.northbound||data.northbound.length===0)tbOpen();
+}
+
+
+var data=load(), saveTimer=null, legGeo=(function(){try{return JSON.parse(localStorage.getItem("rt_leggeo")||"{}")||{};}catch(e){return {};}})(); // legGeo: cached road geometry + rest stops
+function load(){try{var r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r);}catch(e){}return defaults();}
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));flash("Saved");}catch(e){flash("Save unavailable here");}}
+function queueSave(){clearTimeout(saveTimer);flash("Saving…");saveTimer=setTimeout(save,350);}
+function flash(t){document.getElementById("saveLabel").textContent=t;}
+
+function fmtMiles(m){return Math.round(m).toLocaleString()+" mi";}
+function fmtDur(min){min=Math.round(min);var h=Math.floor(min/60),m=min%60;return h===0?(m+"m"):(h+"h "+(m<10?"0":"")+m+"m");}
+function parseDur(v){v=(""+(v==null?"":v)).trim().toLowerCase();if(!v)return 0;var mc=v.match(/^(\d+):(\d{1,2})$/);if(mc)return (+mc[1])*60+(+mc[2]);var h=0,m=0,ok=false;var hm=v.match(/(\d+(?:\.\d+)?)\s*h/);if(hm){h=parseFloat(hm[1]);ok=true;}var mm=v.match(/(\d+)\s*m/);if(mm){m=parseInt(mm[1],10);ok=true;}if(ok)return Math.round(h*60+m);var n=parseFloat(v);return isNaN(n)?0:Math.round(n);}
+function fmtMoney(n){return "$"+Math.round(n).toLocaleString();}
+function parseDate(s){if(!s)return null;var d=new Date(s+"T12:00:00");return isNaN(d)?null:d;}
+function fmtDate(s){var d=parseDate(s);return d?d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}):"—";}
+function t2m(s){if(!s)return 480;var p=s.split(":");return (+p[0])*60+(+p[1]||0);}
+function m2t(m){m=((m%1440)+1440)%1440;var h=Math.floor(m/60),mm=m%60,ap=h>=12?"PM":"AM",hh=h%12;if(hh===0)hh=12;return hh+":"+(mm<10?"0":"")+mm+" "+ap;}
+function haversine(a,b,c,d){var R=3958.8,dl=(c-a)*Math.PI/180,dn=(d-b)*Math.PI/180;var x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dn/2)*Math.sin(dn/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+
+function activeStops(){var s=data.northbound.slice();if(data.settings.roundTrip)s=s.concat(data.returnLeg);return s;}
+function legMiles(rt){var t=0;data.northbound.forEach(function(s){t+=(+s.miles||0)});if(rt)data.returnLeg.forEach(function(s){t+=(+s.miles||0)});return t;}
+function legMins(rt){var t=0;data.northbound.forEach(function(s){t+=(+s.mins||0)});if(rt)data.returnLeg.forEach(function(s){t+=(+s.mins||0)});return t;}
+
+/* break/lunch math for a leg of given driving minutes */
+function legStops(mins){
+  var iv=(+data.settings.breakIntervalH||2)*60, bl=+data.settings.breakLen||0, ll=+data.settings.lunchLen||0;
+  var breaks=[]; for(var t=iv;t<mins;t+=iv) breaks.push(t);
+  var lunch = mins>=(+data.settings.lunchMinDrive||180) && breaks.length>0;
+  var lunchIdx=-1;
+  if(lunch){var best=0,bd=1e9;breaks.forEach(function(bt,i){var d=Math.abs(bt-mins/2);if(d<bd){bd=d;best=i;}});lunchIdx=best;}
+  var added=breaks.length*bl + (lunch?(ll-bl):0);
+  return {breaks:breaks,lunch:lunch,lunchIdx:lunchIdx,added:added,bl:bl,ll:ll,iv:iv};
+}
+function withStopsTotal(rt){
+  var total=0; var add=0;
+  data.northbound.forEach(function(s){total+=(+s.mins||0);add+=legStops(+s.mins||0).added;});
+  if(rt)data.returnLeg.forEach(function(s){total+=(+s.mins||0);add+=legStops(+s.mins||0).added;});
+  return total+add;
+}
+function usableRange(){var t=+data.settings.tankGal||0,m=+data.settings.mpg||0,r=+data.settings.reservePct||0;return t*m*(1-r/100);}
+function legFuelCount(miles){var R=usableRange();return (R>0&&miles>R)?Math.ceil(miles/R)-1:0;}
+function totalFuelStops(rt){var n=0;data.northbound.forEach(function(s){n+=legFuelCount(+s.miles||0);});if(rt)data.returnLeg.forEach(function(s){n+=legFuelCount(+s.miles||0);});return n;}
+
+/* ---------- Page title, straight off the trip ---------- */
+function renderTitle(){
+  var h1=document.querySelector("header.top h1"),eb=document.querySelector("header.top .eyebrow");
+  if(!h1)return;
+  var nb=data.northbound||[];
+  if(!nb.length){
+    h1.textContent="Plan a road trip";
+    if(eb)eb.textContent="Road Trip Planner";
+    document.title="Road Trip Planner";
+    return;
+  }
+  var from=shortLoc(nb[0].name||"Start");
+  var to=shortLoc(nb[nb.length-1].name||from);
+  var arrow=' <span class="arrow">&rarr;</span> ';
+  var html=esc(from)+arrow+esc(to);
+  var plain=from+" → "+to;
+  if(data.settings.roundTrip){html+=arrow+esc(from);plain+=" → "+from;}
+  h1.innerHTML=html;
+  if(eb)eb.textContent=(data.settings.tripName||"Road Trip Planner");
+  document.title=plain+" — Route Log";
+}
+
+/* ---------- Chips ---------- */
+function renderChips(){
+  var rt=data.settings.roundTrip,miles=legMiles(rt),mins=legMins(rt);
+  var h="";
+  h+=chip("Total distance",fmtMiles(miles),rt?"round trip":"one way");
+  h+=chip("Pure driving",fmtDur(mins),"");
+  h+=chip("With stops",fmtDur(withStopsTotal(rt)),"breaks + lunch");
+  h+=chip("Fuel stops",String(totalFuelStops(rt)),"tank \u2248"+Math.round(usableRange())+" mi");
+  h+=chip("Depart",fmtDate(data.northbound[0]?data.northbound[0].date:""),data.northbound[0]?esc(shortLoc(data.northbound[0].name)):"");
+  var longest=0;
+  data.northbound.forEach(function(s){if((+s.mins||0)>longest)longest=+s.mins||0;});
+  if(rt)data.returnLeg.forEach(function(s){if((+s.mins||0)>longest)longest=+s.mins||0;});
+  var lim=maxDailyMin();
+  h+=chip("Longest day",longest?fmtDur(longest):"—",longest>lim+5?("over your "+fmtDur(lim)+" max"):("within your "+fmtDur(lim)+" max"));
+  document.getElementById("headChips").innerHTML=h;
+}
+function chip(k,v,s){return '<div class="chip"><div class="k">'+k+'</div><div class="v">'+v+(s?' <small>'+s+'</small>':'')+'</div></div>';}
+
+/* ---------- Route + day plans ---------- */
+/* A stop you're staying at for several nights gets a card per extra day, so the day strip
+   lands somewhere useful and the days you aren't driving can be planned too. */
+function restDayCards(s,i,arr){
+  var n=Math.max(1,Math.round(+s.nights||1));
+  if(s.origin||s.waypoint||n<2||!s.date)return "";
+  var out="",k;
+  for(k=1;k<n;k++){
+    var d=shiftISO(s.date,k);
+    var notes=(s.restNotes&&s.restNotes[k-1])||"";
+    out+='<div class="stop restday" data-arr="'+arr+'" data-i="'+i+'" data-rest="'+k+'" data-date="'+d+'">'+
+      '<div class="spine"><div class="node rest">&#9679;</div></div>'+
+      '<div class="card">'+dayRibbon(d)+
+        '<div class="card-body">'+
+          '<div class="restline"><span class="restday-tag">Rest day</span> <b>'+esc(shortLoc(s.name))+'</b>'+
+            '<span class="restwhich">day '+(k+1)+' of '+n+' &middot; '+fmtDate(d)+'</span></div>'+
+          '<div class="restwx" data-lat="'+(+s.lat)+'" data-lng="'+(+s.lng)+'" data-date="'+d+'"></div>'+
+          '<input class="notein" data-rf="'+k+'" data-arr="'+arr+'" data-i="'+i+'" placeholder="Plans for this day…" value="'+esc(notes)+'">'+
+        '</div>'+
+      '</div></div>';
+  }
+  return out;
+}
+function bindRestDays(){
+  document.querySelectorAll(".restday input[data-rf]").forEach(function(inp){
+    inp.addEventListener("input",function(){
+      var arr=inp.getAttribute("data-arr"),i=+inp.getAttribute("data-i"),k=+inp.getAttribute("data-rf");
+      var s=data[arr]&&data[arr][i];
+      if(!s)return;
+      if(!s.restNotes)s.restNotes=[];
+      s.restNotes[k-1]=inp.value;
+      queueSave();
+    });
+  });
+  document.querySelectorAll(".restwx").forEach(function(el){
+    dayWeather(+el.getAttribute("data-lat"),+el.getAttribute("data-lng"),el.getAttribute("data-date"),el);
+  });
+}
+/* One day's high/low for a place you're parked at — same fallbacks as the driving weather. */
+var _dayWx=(function(){try{return JSON.parse(localStorage.getItem("rt_daywx")||"{}")||{};}catch(e){return {};}})();
+function dayWeather(lat,lng,date,el){
+  if(!date||isNaN(lat)||isNaN(lng)){el.innerHTML="";return;}
+  var key=lat.toFixed(2)+","+lng.toFixed(2)+","+date;
+  function paint(v){
+    if(!v){el.innerHTML='<div class="wxstrip pending">Fetching the forecast…</div>';return;}
+    if(v.state)  {el.innerHTML='<div class="wxstrip warn">'+esc(v.state)+'</div>';return;}
+    el.innerHTML='<div class="wxstrip"><span class="wxc">'+wxIconOuter(v.c)+' <b>'+v.hi+'°</b> high</span>'+
+      '<span class="wxsep">/</span><span class="wxc"><b>'+v.lo+'°</b> low</span>'+
+      '<span class="wxc"><i>no driving</i></span></div>';
+  }
+  var c=_dayWx[key];
+  if(c&&(Date.now()-c.ts)<216e5){paint(c);return;}
+  paint(null);
+  var today=new Date();today.setHours(12,0,0,0);
+  var dOut=Math.round((parseDate(date)-today)/864e5);
+  if(dOut>15){paint({state:"Forecast for this day isn’t published yet — it lands about two weeks out."});return;}
+  if(dOut<-92){paint({state:"That day is too far back for the weather archive."});return;}
+  var base=(dOut<-5)?"https://archive-api.open-meteo.com/v1/archive?":"https://api.open-meteo.com/v1/forecast?";
+  fetch(base+"latitude="+lat.toFixed(4)+"&longitude="+lng.toFixed(4)+
+        "&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=fahrenheit&timezone=auto&start_date="+date+"&end_date="+date)
+    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+    .then(function(res){
+      var d=res.j&&res.j.daily;
+      if(!res.ok||(res.j&&res.j.error)||!d||!d.temperature_2m_max||d.temperature_2m_max[0]==null){
+        paint({state:"Weather unavailable for this day."});
+        return;
+      }
+      var v={hi:Math.round(d.temperature_2m_max[0]),lo:Math.round(d.temperature_2m_min[0]),
+             c:+(d.weather_code&&d.weather_code[0]||0),ts:Date.now()};
+      _dayWx[key]=v;
+      try{localStorage.setItem("rt_daywx",JSON.stringify(_dayWx));}catch(e){}
+      paint(v);
+    })
+    .catch(function(){paint({state:"Couldn’t reach the weather service."});});
+}
+function renderRoute(){
+  document.getElementById("routeOut").innerHTML=data.northbound.map(function(s,i){return stopCard(s,i,"northbound")+restDayCards(s,i,"northbound");}).join("");
+  document.getElementById("routeRet").innerHTML=data.returnLeg.map(function(s,i){return stopCard(s,i,"returnLeg")+restDayCards(s,i,"returnLeg");}).join("");
+  renderReturnHead();
+  bindRouteInputs();bindRestDays();injectYouHere();initMiniMaps();bindRibbonNav();renderWarnBanner();bindDayWarn();refreshGauge();
+}
+function esc(t){return String(t==null?"":t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+function prevStop(arr,i){
+  if(arr==="northbound") return i>0?data.northbound[i-1]:null;
+  return i>0?data.returnLeg[i-1]:data.northbound[data.northbound.length-1];
+}
+function _isoD(dt){var m=("0"+(dt.getMonth()+1)).slice(-2),d=("0"+dt.getDate()).slice(-2);return dt.getFullYear()+"-"+m+"-"+d;}
+function tripDays(){
+  /* the trip runs to the last night slept, not the last arrival — a 3-night stay adds 2 days */
+  var all=data.northbound.concat(data.returnLeg||[]).filter(function(s){return s.date;});
+  if(!all.length)return[];
+  var first=null,last=null;
+  all.forEach(function(s){
+    var end=shiftISO(s.date,Math.max(0,Math.round(+s.nights||1)-1));
+    if(first===null||s.date<first)first=s.date;
+    if(last===null||end>last)last=end;
+  });
+  var d=new Date(first+"T12:00:00"),e=new Date(last+"T12:00:00"),out=[];
+  while(d<=e){out.push(_isoD(d));d.setDate(d.getDate()+1);}
+  return out;
+}
+function dayRibbon(cur){
+  var days=tripDays(); if(!days.length) return "";
+  var EV=eventsByDay();
+  function iso(dt){var m=("0"+(dt.getMonth()+1)).slice(-2),d=("0"+dt.getDate()).slice(-2);return dt.getFullYear()+"-"+m+"-"+d;}
+  var first=new Date(days[0]+"T12:00:00"), last=new Date(days[days.length-1]+"T12:00:00");
+  var gs=new Date(first); gs.setDate(gs.getDate()-gs.getDay());
+  var ge=new Date(last); ge.setDate(ge.getDate()+(6-ge.getDay()));
+  var wk=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var html=wk.map(function(w){return '<div class="rhd">'+w+'</div>';}).join("");
+  var fi=iso(first), la=iso(last), d=new Date(gs);
+  while(d<=ge){
+    var x=iso(d), num=d.getDate();
+    if(x>=fi && x<=la){
+      var evLabel=EV[x]||"",wed=!!evLabel;
+      var st=!cur?"fut":(x<cur?"past":(x===cur?"cur":"fut"));
+      var full=d.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
+      var mk=wed?'<span class="rmk">&#9670;</span>':"";
+      html+='<div class="rday rday--'+st+(wed?" rday--wed":"")+'" data-day="'+x+'" role="button" tabindex="0" title="Jump to '+full+(evLabel?" \u00b7 "+evLabel:"")+'">'+mk+'<span class="rnum">'+num+'</span></div>';
+    } else {
+      html+='<div class="rday rday--out"><span class="rnum">'+num+'</span></div>';
+    }
+    d.setDate(d.getDate()+1);
+  }
+  return '<div class="ribbon" aria-label="Trip calendar">'+html+'</div><div class="ribbon-cap">tap a day to jump to it</div>';
+}
+function shortLoc(n){var t=n||"";if(t.indexOf(" — ")>=0){var p=t.split(" — ");t=p[p.length-1];}return t.split(",")[0];}
+var _miniMaps=[];
+function initMiniMaps(){
+  if(typeof L==="undefined")return;
+  _miniMaps.forEach(function(m){try{m.remove();}catch(e){}});_miniMaps=[];
+  document.querySelectorAll(".card-map .mm").forEach(function(el){
+    var arr=el.getAttribute("data-arr"),i=+el.getAttribute("data-i");
+    var s=data[arr][i],prev=prevStop(arr,i);if(!prev)return;
+    var m=L.map(el,{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false,tap:false});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(m);
+    var geo=legGeo[arr+":"+i],line=(geo&&geo.coords&&geo.coords.length)?geo.coords:[[prev.lat,prev.lng],[s.lat,s.lng]];
+    var pl=L.polyline(line,{color:"#163038",weight:3,opacity:.9}).addTo(m);
+    L.circleMarker([prev.lat,prev.lng],{radius:5,color:"#b9842a",fillColor:"#b9842a",fillOpacity:1,weight:1}).addTo(m);
+    L.circleMarker([s.lat,s.lng],{radius:6,color:"#163038",fillColor:"#ffffff",fillOpacity:1,weight:3}).addTo(m);
+    var _lp=lunchPinOf(arr,i);if(_lp)lunchMarker(_lp,m);try{m.fitBounds(pl.getBounds(),{padding:[14,14]});}catch(e){}
+    _miniMaps.push(m);
+    /* the map may be torn down by the next render before this fires — check it's still live */
+    (function(mm,pp){setTimeout(function(){
+      try{
+        if(!mm._container||!document.body.contains(mm._container))return;
+        mm.invalidateSize();
+        mm.fitBounds(pp.getBounds(),{padding:[14,14]});
+      }catch(e){}
+    },80);})(m,pl);
+  });
+}
+function jumpToDay(iso){
+  if(!iso)return false;
+  var stops=[].slice.call(document.querySelectorAll(".stop[data-date]")).filter(function(el){
+    return el.getAttribute("data-date")&&el.offsetParent!==null;
+  });
+  var target=null,k;
+  /* exact date first */
+  for(k=0;k<stops.length;k++){if(stops[k].getAttribute("data-date")===iso){target=stops[k];break;}}
+  /* otherwise the stay that covers this day — the last one that started on or before it */
+  if(!target)for(k=0;k<stops.length;k++){if(stops[k].getAttribute("data-date")<=iso)target=stops[k];}
+  /* a day before the trip starts jumps to the first stop */
+  if(!target&&stops.length)target=stops[0];
+  if(!target)return false;
+  var y=target.getBoundingClientRect().top+window.pageYOffset-70;
+  window.scrollTo({top:y,behavior:"smooth"});
+  document.querySelectorAll(".stop.flash").forEach(function(el){el.classList.remove("flash");});
+  target.classList.add("flash");
+  setTimeout(function(){target.classList.remove("flash");},1800);
+  return true;
+}
+function bindRibbonNav(){
+  if(window._ribbonNavBound)return; window._ribbonNavBound=true;
+  function hit(e){
+    var cell=e.target.closest?e.target.closest(".rday[data-day]"):null;
+    if(!cell)return;
+    e.preventDefault();
+    jumpToDay(cell.getAttribute("data-day"));
+  }
+  document.addEventListener("click",hit);
+  document.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" ")hit(e);});
+}
+function stopCard(s,i,arr){
+  var cls="stop"+(s.event?" wedding":"")+(s.tentative?" tentative":"");
+  var num=(arr==="northbound")?i:(data.northbound.length+i);
+  var hasLeg=!s.origin&&(+s.miles>0);
+  var hasGauge=!s.origin&&(+s.mins||0)>=45&&prevStop(arr,i);
+  var prevS=s.origin?null:prevStop(arr,i);
+  var real='';
+  var legrow=hasLeg?('<div class="legstats"><div class="legstat dist"><span class="lsv">'+fmtMiles(+s.miles)+'</span><span class="lsl">distance</span></div><div class="legstat time"><span class="lsv">'+fmtDur(+s.mins)+'</span><span class="lsl">drive time</span></div>'+real+'</div>')
+            :(s.origin?'<div class="legrow"><span>Departure point</span></div>':'');
+  var nights=Math.max(1,Math.round(+s.nights||1));
+  var badge=s.event?('<span class="badge wed">'+esc(s.event)+'</span>'):s.tentative?'<span class="badge tent">Not booked</span>':s.waypoint?'<span class="badge way">Pickup</span>':s.origin?'':'<span class="badge book">Booked</span>';
+  if(!s.origin&&!s.waypoint&&nights>1)badge+='<span class="badge nights">'+nights+' nights</span>';
+  var place=prevS?('<div class="place routeline"><span class="fromloc"><span class="star">&#9733;</span>'+esc(shortLoc(prevS.name))+'</span><span class="rarrow">&rarr;</span><h3>'+s.name+'</h3>'+badge+'</div>')
+                 :('<div class="place routeline"><span class="star lone">&#9733;</span><h3>'+s.name+'</h3>'+badge+'</div>');
+  var hotelF='<div class="field hotelfield"><label>Hotel / stop</label><input class="hotel" data-f="hotel" value="'+esc(s.hotel)+'"></div>';
+  var dateF='<div class="field"><label>'+(s.origin?'Leaving':'Arrive')+'</label><input type="date" data-f="date" value="'+(s.date||'')+'"></div>';
+  /* stretch one night into several — later dates shift to match */
+  var nightsF=(s.origin||s.waypoint)?'':'<div class="field"><label>Nights</label><input class="num nights" type="number" min="1" step="1" data-f="nights" value="'+nights+'" title="Add nights here and every later date moves back to match"></div>';
+  var confF='<div class="field"><label>Confirmation / link</label><input class="conf" data-f="conf" value="'+esc(s.conf||'')+'">'+(s.link?'<a class="conflink" href="'+esc(s.link)+'" target="_blank" rel="noopener">View reservation \u2197</a>':'')+'</div>';
+  var departF=s.origin?'':'<div class="field"><label>Depart</label><input type="time" class="time depart" data-f="depart" value="'+(s.depart||data.settings.defaultDepart)+'"></div>';
+  var milesF=s.origin?'':'<div class="field"><label>Miles</label><input class="num" type="number" data-f="miles" value="'+(+s.miles)+'"></div>';
+  var driveF=s.origin?'':'<div class="field"><label>Drive Time</label><input class="drivetime" type="text" data-f="mins" value="'+fmtDur(+s.mins)+'"></div>';
+  var note='<input class="notein" data-f="note" placeholder="Notes\u2026" value="'+esc(s.note||'')+'">';
+  var eventF=s.origin?'':'<div class="field"><label>Event here (optional)</label><input class="evin" data-f="event" placeholder="Wedding, check-in\u2026" value="'+esc(s.event||'')+'"></div>';
+  var lunchF=(s.origin||!hasLeg)?'':'<div class="field lunchfield"><label>Meal stop on this leg</label><input class="lunchin" data-f="lunchStop" placeholder="Name a place, or leave blank" value="'+esc((s.lunchPin&&s.lunchPin.name)||s.lunchStop||'')+'"><span class="lunchstate">'+(s.lunchPin?'pinned \u2713':'')+'</span></div>';
+  var body;
+  if(hasGauge){
+    var g='https://www.google.com/maps/dir/?api=1&origin='+prevS.lat+','+prevS.lng+'&destination='+s.lat+','+s.lng+'&travelmode=driving';
+    var ap='http://maps.apple.com/?saddr='+prevS.lat+','+prevS.lng+'&daddr='+s.lat+','+s.lng+'&dirflg=d';
+    var navbtns='<div class="navbtns"><a class="g" href="'+g+'" target="_blank" rel="noopener">Open in Google Maps</a><a href="'+ap+'" target="_blank" rel="noopener">Open in Apple Maps</a></div>';
+    var geo=legGeo[arr+":"+i],rests='';
+    if(geo&&geo.rests&&geo.rests.length){rests='<div class="reststops"><b>Planned stops along the way:</b><br>'+geo.rests.map(function(r){return '<span class="rs">'+(r.lunch?'\U0001F37D lunch':'\u2615 break')+' \u00b7 '+r.label+'</span>';}).join('')+'</div>';}
+    var center='<div class="cg-center"><svg class="cg" data-arr="'+arr+'" data-i="'+i+'" viewBox="0 0 400 400"></svg><div class="cg-scrub"><span>Time</span><input type="range" class="cg-sim" min="0" max="1439" step="5" value="480"><span class="cg-simlab"></span><button class="cg-live">Live</button></div><div class="cg-segsel">Drag the red knob to set your leave time · tap a wedge for detail</div></div>';
+    var tiles='<div class="cg-tiles"><div class="cg-tile"><div class="k">Odometer</div><div class="v t-odo">&mdash;</div></div><div class="cg-tile"><div class="k">Avg speed</div><div class="v t-spd">&mdash;</div></div><div class="cg-tile"><div class="k">Fuel</div><div class="v t-fuel">&mdash;</div></div><div class="cg-tile"><div class="k">Next</div><div class="v t-next">&mdash;</div></div><div class="cg-tile"><div class="k">ETA</div><div class="v t-eta">&mdash;</div></div><div class="cg-tile"><div class="k">Schedule</div><div class="v t-sched">&mdash;</div></div></div>';
+    var logrow='<div class="cg-logrow"><button class="cg-lbtn cg-start">Start drive</button><button class="cg-lbtn amber cg-stop">Log stop</button><button class="cg-lbtn dk cg-arr">Arrived</button><button class="cg-lbtn sec cg-reset">Reset</button><div class="cg-logout"></div></div>';
+    var mapcol='<div class="card-map cg-map"><div class="mm" data-arr="'+arr+'" data-i="'+i+'"></div><div class="cg-maptitle"><span class="mt-from">'+esc(shortLoc(prevS.name))+'</span> <span class="mt-arr">\u2192</span> <span class="mt-to">'+esc(s.name)+'</span>'+badge+'</div></div>';
+    var gauge='<div class="cardgauge" data-arr="'+arr+'" data-i="'+i+'"><div class="cg-around">'+mapcol+center+'</div>'+'<div class="cg-wx"></div>'+tiles+logrow+'<div class="cg-foot"></div></div>';
+    body=legrow+dayWarnHtml(s,i,arr)+gauge+navbtns+note+'<div class="stayfields">'+hotelF+dateF+nightsF+eventF+lunchF+confF+'</div>';
+  } else {
+    var meta='<div class="stayfields">'+hotelF+dateF+nightsF+eventF+lunchF+confF+'</div>';
+    body=legrow+place+dayWarnHtml(s,i,arr)+note+meta;
+  }
+  return '<div class="'+cls+'" data-arr="'+arr+'" data-i="'+i+'" data-date="'+(s.date||'')+'">'+
+    '<div class="spine"><div class="node">'+num+'</div></div>'+
+    '<div class="card"><div class="cardnum">'+num+'</div>'+dayRibbon(s.date)+
+      '<div class="card-body">'+body+'</div>'+
+    '</div></div>';
+}
+function buildDayPlan(s,i,arr){
+  var prev=prevStop(arr,i); if(!prev) return '';
+  var mins=+s.mins||0, miles=+s.miles||0; var st=legStops(mins);
+  var avg = mins>0 ? miles/(mins/60) : 0;
+  var R = usableRange();
+  var Nfuel = (R>0 && miles>R) ? Math.ceil(miles/R)-1 : 0;
+  var fuelSet={};
+  if(Nfuel>0 && st.breaks.length>0){
+    for(var k=1;k<=Nfuel;k++){
+      var target=k*R, pick=-1;
+      for(var b=0;b<st.breaks.length;b++){ var mb=avg*((b+1)*st.iv/60); if(mb<=target) pick=b; }
+      if(pick<0) pick=st.breaks.length-1;
+      fuelSet[pick]=true;
+    }
+  }
+  var depart=t2m(s.depart||data.settings.defaultDepart);
+  var clock=depart, events=['<span class="tchip depart"><span class="t">'+m2t(clock)+'</span> depart '+esc(prev.name)+'</span>'];
+  var remaining=mins, seg=0, bi=0;
+  while(remaining>0){
+    var d=Math.min(st.iv,remaining); clock+=d; remaining-=d;
+    if(remaining>0){
+      var isFuel=!!fuelSet[bi];
+      if(st.lunch && bi===st.lunchIdx){ clock+=st.ll; events.push('<span class="tchip lunch'+(isFuel?' fuel':'')+'"><span class="t">'+m2t(clock-st.ll)+'</span> '+(isFuel?'&#9981; fuel + ':'')+'lunch ('+st.ll+'m)</span>'); }
+      else { clock+=st.bl; events.push('<span class="tchip'+(isFuel?' fuel':'')+'"><span class="t">'+m2t(clock-st.bl)+'</span> '+(isFuel?'&#9981; fuel + rest':'break')+' ('+st.bl+'m)</span>'); }
+      bi++;
+    }
+  }
+  events.push('<span class="tchip arrive"><span class="t">'+m2t(clock)+'</span> arrive '+esc(s.name)+'</span>');
+  if(+s.dwellMin>0){ var leave=clock+(+s.dwellMin); events.push('<span class="tchip dwell"><span class="t">'+m2t(clock)+'</span> '+esc(s.dwellNote||'stop')+' ('+fmtDur(+s.dwellMin)+') &rarr; leave '+m2t(leave)+'</span>'); }
+  var timeline=events.join('<span class="tarrow">&rarr;</span>');
+
+  // maps deep links for this leg
+  var g='https://www.google.com/maps/dir/?api=1&origin='+prev.lat+','+prev.lng+'&destination='+s.lat+','+s.lng+'&travelmode=driving';
+  var a='http://maps.apple.com/?saddr='+prev.lat+','+prev.lng+'&daddr='+s.lat+','+s.lng+'&dirflg=d';
+  var navbtns='<div class="navbtns"><a class="g" href="'+g+'" target="_blank" rel="noopener">Open in Google Maps</a><a href="'+a+'" target="_blank" rel="noopener">Open in Apple Maps</a></div>';
+
+  // rest stop locations from real route
+  var geo=legGeo[arr+":"+i], rests='';
+  if(geo&&geo.rests&&geo.rests.length){
+    rests='<div class="reststops"><b>Planned stops along the way:</b><br>'+geo.rests.map(function(r){
+      return '<span class="rs">'+(r.lunch?'🍽 lunch':'☕ break')+' · '+r.label+'</span>';}).join('')+'</div>';
+  }
+
+  var fuelNote = Nfuel>0 ? (' · '+Nfuel+' fuel stop'+(Nfuel===1?'':'s')) : (miles>0?' · no fuel stop needed':'');
+  return '<div class="dayplan"><div class="dphead">Day plan — '+st.breaks.length+' break'+(st.breaks.length===1?'':'s')+(st.lunch?' incl. lunch':'')+fuelNote+', arrive <span class="arrivepill">'+m2t(clock)+'</span></div>'+
+    '<div class="timeline">'+timeline+'</div>'+navbtns+rests+'</div>';
+}
+function bindRouteInputs(){
+  document.querySelectorAll(".stop:not(.restday)").forEach(function(row){
+    var arr=row.getAttribute("data-arr"),i=+row.getAttribute("data-i");
+    row.querySelectorAll("input[data-f]").forEach(function(inp){
+      /* an event label marks that day on every strip, so redraw once the field is done */
+      if(inp.getAttribute("data-f")==="event"){
+        inp.addEventListener("input",function(){data[arr][i].event=inp.value;queueSave();});
+        inp.addEventListener("change",function(){
+          data[arr][i].event=inp.value.trim();
+          queueSave();renderRoute();drawRouteOnMap();
+        });
+        return;
+      }
+      /* the meal stop is typed as text, then geocoded into a pin on the route */
+      if(inp.getAttribute("data-f")==="lunchStop"){
+        inp.addEventListener("change",function(){
+          var v=(inp.value||"").trim(),st=row.querySelector(".lunchstate");
+          data[arr][i].lunchStop=v;
+          if(!v){delete data[arr][i].lunchPin;if(st)st.textContent="";queueSave();renderRoute();drawRouteOnMap();return;}
+          if(st)st.textContent="finding\u2026";
+          geocode(v).then(function(o){
+            data[arr][i].lunchPin={name:v,lat:o.lat,lng:o.lng};
+            queueSave();renderRoute();drawRouteOnMap();
+            flash("Meal stop pinned");
+          }).catch(function(){
+            delete data[arr][i].lunchPin;
+            if(st)st.textContent="couldn\u2019t find that";
+            queueSave();
+          });
+        });
+        return;
+      }
+      /* nights is its own thing: extending a stay pushes every later date back */
+      if(inp.getAttribute("data-f")==="nights"){
+        inp._prev=Math.max(1,Math.round(+data[arr][i].nights||1));
+        inp.addEventListener("change",function(){
+          var nv=Math.max(1,Math.round(+inp.value||1));
+          inp.value=nv;
+          var delta=nv-inp._prev;
+          inp._prev=nv;
+          data[arr][i].nights=nv;
+          if(nv>1)data[arr][i].note=(data[arr][i].note||"").replace(/^\d+ nights?\s*/,"")||data[arr][i].note||"";
+          if(delta)shiftDatesFrom(arr,i+1,delta);
+          queueSave();renderAll();
+          if(delta)flash(delta>0?("Added "+delta+" night"+(delta>1?"s":"")+" — later dates moved back"):("Removed "+(-delta)+" night"+(delta<-1?"s":"")+" — later dates moved up"));
+        });
+        return;
+      }
+      if(inp.getAttribute("data-f")==="mins"){inp.addEventListener("change",function(){inp.value=fmtDur(+data[arr][i].mins||0);});}inp.addEventListener("input",function(){
+        var f=inp.getAttribute("data-f");
+        data[arr][i][f]=(f==="miles")?(+inp.value||0):(f==="mins")?parseDur(inp.value):inp.value;
+        queueSave();
+        if(f==="miles"||f==="mins"){renderChips();renderDrive();}refreshGauge(arr,i);
+        if(f==="depart"||f==="miles"||f==="mins"){ // refresh just this card's day plan
+          var card=row.querySelector(".card .dayplan"); if(card){ var s=data[arr][i]; var html=buildDayPlan(s,i,arr); var tmp=document.createElement("div"); tmp.innerHTML=html; card.replaceWith(tmp.firstChild);} }
+      });
+    });
+  });
+}
+
+/* ---------- Drive table ---------- */
+function renderDrive(){
+  var withStops=document.getElementById("showWithStops").checked, rows=[];
+  function block(arr,title){
+    var list=data[arr]; rows.push('<tr class="cathead"><td colspan="4">'+title+'</td></tr>');
+    for(var i=0;i<list.length;i++){
+      var s=list[i]; if((+s.miles||0)===0&&s.origin) continue;
+      var prev=prevStop(arr,i), pn=prev?prev.name:"Start";
+      var t=(+s.mins||0)+(withStops?legStops(+s.mins||0).added:0);
+      rows.push('<tr><td class="leg"><b>'+pn+'</b> &rarr; '+s.name+'</td><td class="num">'+fmtMiles(+s.miles)+'</td><td class="num">'+fmtDur(+s.mins)+'</td><td class="num">'+fmtDur(t)+'</td></tr>');
+    }
+  }
+  block("northbound","Northbound");
+  if(data.settings.roundTrip) block("returnLeg","Return (suggested)");
+  var rt=data.settings.roundTrip;
+  rows.push('<tr class="dtotal"><td>Total — '+(rt?"round trip":"one way")+'</td><td class="num">'+fmtMiles(legMiles(rt))+'</td><td class="num">'+fmtDur(legMins(rt))+'</td><td class="num">'+fmtDur(withStopsTotal(rt))+'</td></tr>');
+  document.getElementById("driveTable").innerHTML='<thead><tr><th>Leg</th><th class="num">Distance</th><th class="num">Pure driving</th><th class="num">'+(withStops?'With stops':'Driving')+'</th></tr></thead><tbody>'+rows.join("")+'</tbody>';
+}
+
+/* ---------- Budget ---------- */
+function recalcFuel(){data.budget.forEach(function(b){if(b.auto==="fuel"){var mpg=+data.settings.mpg||1,p=+data.settings.gasPrice||0,mi=+data.settings.fuelMiles||0;b.amt=Math.round((mi/mpg)*p);}});}
+function renderBudget(){
+  recalcFuel();var cats=[];data.budget.forEach(function(b){if(cats.indexOf(b.cat)<0)cats.push(b.cat);});
+  var rows="";
+  cats.forEach(function(cat){
+    rows+='<tr class="cathead"><td colspan="4">'+cat+'</td></tr>';
+    data.budget.forEach(function(b,idx){
+      if(b.cat!==cat)return;var auto=b.auto==="fuel";
+      rows+='<tr data-idx="'+idx+'"><td><input type="text" data-bf="label" value="'+esc(b.label)+'">'+(auto?'<span class="auto">auto</span>':'')+'</td>'+
+        '<td class="num">'+(auto?'<span class="mono">'+fmtMoney(b.amt)+'</span>':'<input type="number" data-bf="amt" value="'+(+b.amt||0)+'" min="0" step="1">')+'</td>'+
+        '<td><span class="statuspill '+(b.status==="known"?"known":"est")+'" data-toggle>'+(b.status==="known"?"Known":"Estimate")+'</span></td>'+
+        '<td class="num">'+(auto?'':'<button class="rowdel" title="Remove">&times;</button>')+'</td></tr>';
+    });
+  });
+  document.getElementById("budgetTable").innerHTML='<thead><tr><th>Item</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead><tbody>'+rows+'</tbody>';
+  bindBudget();renderTotals();
+}
+function bindBudget(){
+  document.querySelectorAll("#budgetTable tr[data-idx]").forEach(function(tr){
+    var idx=+tr.getAttribute("data-idx");
+    tr.querySelectorAll("input[data-bf]").forEach(function(inp){inp.addEventListener("input",function(){var f=inp.getAttribute("data-bf");data.budget[idx][f]=(f==="amt")?(+inp.value||0):inp.value;queueSave();renderTotals();});});
+    var pill=tr.querySelector("[data-toggle]");if(pill)pill.addEventListener("click",function(){data.budget[idx].status=data.budget[idx].status==="known"?"est":"known";queueSave();renderBudget();});
+    var del=tr.querySelector(".rowdel");if(del)del.addEventListener("click",function(){data.budget.splice(idx,1);queueSave();renderBudget();});
+  });
+}
+function renderTotals(){
+  var known=0,est=0;data.budget.forEach(function(b){var a=+b.amt||0;if(b.status==="known")known+=a;else est+=a;});
+  var grand=known+est;
+  document.getElementById("totKnown").textContent=fmtMoney(known);
+  document.getElementById("totEst").textContent=fmtMoney(est);
+  document.getElementById("totGrand").textContent=fmtMoney(grand);
+  var kp=grand>0?(known/grand*100):0,bar=document.getElementById("splitBar");
+  bar.querySelector(".sk").style.width=kp+"%";bar.querySelector(".se").style.width=(100-kp)+"%";
+}
+
+/* ---------- Map ---------- */
+var map=null,youMarker=null,routeLayers=[];
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||"#2f7077";}
+function initMap(){
+  if(typeof L==="undefined"){document.getElementById("map").innerHTML='<div class="mapfail">Map library didn\'t load (you may be offline). Reconnect and refresh — the rest of the page still works.</div>';return;}
+  map=L.map("map",{scrollWheelZoom:false}).setView([34,-79],5);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap"}).addTo(map);
+  map.on("click",function(e){map.scrollWheelZoom.enable();if(mapAddMode)mapClickAdd(e.latlng);});
+  drawRouteOnMap();
+}
+function projLunchMin(pin,coords,driveMin){function hv(a,b,c,d){var R=3958.8,p=Math.PI/180,x=(c-a)*p,y=(d-b)*p,q=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*p)*Math.cos(c*p)*Math.sin(y/2)*Math.sin(y/2);return R*2*Math.atan2(Math.sqrt(q),Math.sqrt(1-q));}var best=0,bd=1e18;for(var i=0;i<coords.length;i++){var dla=coords[i][0]-pin.lat,dlo=coords[i][1]-pin.lng,dd=dla*dla+dlo*dlo;if(dd<bd){bd=dd;best=i;}}var tot=0,upto=0;for(var i=1;i<coords.length;i++){var seg=hv(coords[i-1][0],coords[i-1][1],coords[i][0],coords[i][1]);tot+=seg;if(i<=best)upto+=seg;}if(tot<=0)return -1;return Math.max(1,Math.min(driveMin-1,(upto/tot)*driveMin));}/* The meal stop for a leg is whatever the user pinned on that leg — nothing is baked in. */
+function lunchPinOf(arr,i){var s=data[arr]&&data[arr][i];var p=s&&s.lunchPin;return (p&&p.lat!=null&&p.lng!=null)?p:null;}function lunchMarker(pin,mp){var ic=L.divIcon({className:"",iconSize:[22,22],iconAnchor:[11,11],html:'<div style="width:20px;height:20px;border-radius:50%;background:#d97a5c;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:11px">\uD83C\uDF74</div>'});return L.marker([pin.lat,pin.lng],{icon:ic,title:pin.name}).addTo(mp);}
+  function drawRouteOnMap(){
+  if(!map)return;routeLayers.forEach(function(l){map.removeLayer(l);});routeLayers=[];var allPts=[];
+  function drawArr(arr,color,dash){
+    var list=data[arr];
+    for(var i=0;i<list.length;i++){
+      var s=list[i]; if(s.origin&&arr==="northbound"){ routeLayers.push(stopMarker(s,0,false)); allPts.push([s.lat,s.lng]); continue; }
+      var prev=prevStop(arr,i); if(!prev) continue;
+      var geo=legGeo[arr+":"+i];
+      if(geo&&geo.coords&&geo.coords.length){
+        var pl=L.polyline(geo.coords,{color:color,weight:4,dashArray:dash,interactive:false}).addTo(map);routeLayers.push(pl);allPts=allPts.concat(geo.coords);
+        (geo.rests||[]).forEach(function(r){routeLayers.push(restMarker(r));});
+      } else {
+        var seg=L.polyline([[prev.lat,prev.lng],[s.lat,s.lng]],{color:color,weight:4,dashArray:dash,interactive:false}).addTo(map);routeLayers.push(seg);
+      }
+      var num=(arr==="northbound")?i:(data.northbound.length+i);
+      var _lp=lunchPinOf(arr,i);if(_lp)routeLayers.push(lunchMarker(_lp,map));routeLayers.push(stopMarker(s,num,arr==="returnLeg"));allPts.push([s.lat,s.lng]);
+    }
+  }
+  drawArr("northbound",getCss("--teal"),null);
+  if(data.settings.roundTrip) drawArr("returnLeg",getCss("--brass"),"7,8");
+  if(allPts.length)map.fitBounds(L.latLngBounds(allPts).pad(0.12));
+}
+function stopMarker(s,num,tent){
+  var bg=s.event?getCss("--panel"):(tent?"#fff":getCss("--brass")),fg=tent?getCss("--brass"):"#fff",bd=tent?("2px solid "+getCss("--brass")):"2px solid #fff";
+  var icon=L.divIcon({className:"",iconSize:[26,26],iconAnchor:[13,13],html:'<div style="width:26px;height:26px;border-radius:50%;background:'+bg+';color:'+fg+';border:'+bd+';box-shadow:0 1px 4px rgba(0,0,0,.3);font:700 12px/26px \'JetBrains Mono\',monospace;text-align:center">'+num+'</div>'});
+  var m=L.marker([s.lat,s.lng],{icon:icon}).addTo(map);
+  m.bindPopup("<b>"+s.name+"</b><br>"+esc(s.hotel)+(s.date?"<br>"+fmtDate(s.date):""));return m;
+}
+function restMarker(r){
+  var icon=L.divIcon({className:"",iconSize:[14,14],iconAnchor:[7,7],html:'<div style="width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid '+getCss("--teal")+'"></div>'});
+  var m=L.marker([r.lat,r.lng],{icon:icon}).addTo(map);m.bindPopup((r.lunch?"<b>Lunch stop</b>":"<b>Rest stop</b>")+"<br>"+r.label);return m;
+}
+
+/* ---------- OSRM real routing ---------- */
+function osrmUrl(a,b){return "https://router.project-osrm.org/route/v1/driving/"+a.lng+","+a.lat+";"+b.lng+","+b.lat+"?overview=full&geometries=geojson&steps=true";}
+function placeRests(route,mins){
+  // walk steps, place a marker every breakInterval; mark the one nearest midpoint as lunch
+  var iv=(+data.settings.breakIntervalH||2)*60, thresholds=[];
+  for(var t=iv;t<mins;t+=iv) thresholds.push(t*60); // seconds
+  if(!thresholds.length) return [];
+  var steps=(route.legs&&route.legs[0]&&route.legs[0].steps)?route.legs[0].steps:[];
+  var acc=0, out=[], ti=0;
+  for(var i=0;i<steps.length && ti<thresholds.length;i++){
+    acc+=steps[i].duration||0;
+    while(ti<thresholds.length && acc>=thresholds[ti]){
+      var loc=steps[i].maneuver&&steps[i].maneuver.location?steps[i].maneuver.location:null;
+      if(loc) out.push({lat:loc[1],lng:loc[0],atMin:Math.round(thresholds[ti]/60),lunch:false,label:fmtDur(thresholds[ti]/60)+" in"});
+      ti++;
+    }
+  }
+  // lunch = stop nearest midpoint
+  if(out.length){var mid=mins/2,best=0,bd=1e9;out.forEach(function(r,i){var d=Math.abs(r.atMin-mid);if(d<bd){bd=d;best=i;}});out[best].lunch=true;out[best].label="lunch · "+fmtDur(out[best].atMin)+" in";}
+  return out;
+}
+function legSig(prev,s){return [prev.lat,prev.lng,s.lat,s.lng,s.date||"",s.depart||""].join(",");}
+function mapboxUrl(a,b,departISO){var u="https://api.mapbox.com/directions/v5/mapbox/driving-traffic/"+a.lng+","+a.lat+";"+b.lng+","+b.lat+"?overview=full&geometries=geojson&steps=true&access_token="+encodeURIComponent(MAPBOX_TOKEN);if(departISO)u+="&depart_at="+encodeURIComponent(departISO);return u;}
+function fetchLeg(arr,i){
+  var s=data[arr][i], prev=prevStop(arr,i);
+  if(!prev||s.origin) return Promise.resolve(false);
+  var key=arr+":"+i, sig=legSig(prev,s), c=legGeo[key];
+  if(c&&c.sig===sig&&c.coords&&c.coords.length){ if(c.miles!=null)data[arr][i].miles=c.miles; if(c.mins!=null)data[arr][i].mins=c.mins; return Promise.resolve("cached"); }
+  var departISO=null; if(s.date&&s.depart){var dt=new Date(s.date+"T"+s.depart); if(!isNaN(dt)&&dt.getTime()>Date.now()-36e5) departISO=s.date+"T"+s.depart;}
+  var useMB=MAPBOX_TOKEN&&MAPBOX_TOKEN.length>10&&MAPBOX_TOKEN.indexOf("PASTE")<0;
+  function apply(route,source){
+    var coords=route.geometry.coordinates.map(function(c){return [c[1],c[0]];});
+    var miles=Math.round(route.distance/1609.34), mins=Math.round(route.duration/60);
+    data[arr][i].miles=miles; data[arr][i].mins=mins;
+    legGeo[key]={coords:coords,rests:placeRests(route,mins),sig:sig,source:source,miles:miles,mins:mins};
+    return "fetched";
+  }
+  function viaOsrm(){return fetch(osrmUrl(prev,s)).then(function(r){return r.json();}).then(function(j){return (j.routes&&j.routes[0]&&j.routes[0].geometry)?apply(j.routes[0],"osrm"):false;}).catch(function(){return false;});}
+  if(useMB){
+    return fetch(mapboxUrl(prev,s,departISO)).then(function(r){if(!r.ok)throw 0;return r.json();})
+      .then(function(j){return (j.routes&&j.routes[0]&&j.routes[0].geometry)?apply(j.routes[0],"mapbox"):viaOsrm();})
+      .catch(function(){return viaOsrm();});
+  }
+  return viaOsrm();
+}
+function fetchAllRoutes(){
+  if(typeof fetch==="undefined"){setRouteStatus("This browser can't fetch live roads.");return;}
+  setRouteStatus("Fetching real road routes…");
+  var jobs=[];
+  data.northbound.forEach(function(s,i){if(!s.origin)jobs.push({arr:"northbound",i:i});});
+  if(data.settings.roundTrip) data.returnLeg.forEach(function(s,i){jobs.push({arr:"returnLeg",i:i});});
+  // sequential to be gentle on the public server
+  var ok=0,done=0;
+  function next(k){
+    if(k>=jobs.length){
+      var src=MAPBOX_TOKEN?"live traffic (Mapbox)":"free-flow (OSRM — add a Mapbox token for traffic)";
+      setRouteStatus(ok>0?("Real roads via "+src+" — "+ok+" of "+jobs.length+" legs."):"Couldn't reach routing — showing stored estimates.");
+      saveLegGeo();queueSave();renderChips();renderDrive();renderRoute();drawRouteOnMap();return;
+    }
+    fetchLeg(jobs[k].arr,jobs[k].i).then(function(res){if(res)ok++;done++;setRouteStatus("Fetching routes… ("+done+"/"+jobs.length+")");setTimeout(function(){next(k+1);},res==="fetched"?250:0);});
+  }
+  next(0);
+}
+function saveLegGeo(){try{localStorage.setItem("rt_leggeo",JSON.stringify(legGeo));}catch(e){}}
+function setRouteStatus(t){var e=document.getElementById("routeStatus");if(e)e.textContent=t;}
+function updateFullGmaps(){
+  var stops=activeStops().filter(function(s,i){return true;});
+  if(!stops.length)return;
+  var origin=stops[0],dest=stops[stops.length-1];
+  var mids=stops.slice(1,-1).map(function(s){return s.lat+","+s.lng;}).join("|");
+  var url='https://www.google.com/maps/dir/?api=1&origin='+origin.lat+','+origin.lng+'&destination='+dest.lat+','+dest.lng+(mids?'&waypoints='+encodeURIComponent(mids):'')+'&travelmode=driving';
+  document.getElementById("fullGmaps").href=url;
+}
+
+/* ---------- EIA gas price ---------- */
+function getEiaKey(){try{return localStorage.getItem(EIA_KEY_STORE)||"";}catch(e){return "";}}
+function fetchGas(){
+  var key=getEiaKey(), msg=document.getElementById("gasMsg");
+  if(!key){msg.innerHTML='Add your free EIA key first (the “Set EIA key” link). Register at <a href="https://www.eia.gov/opendata/register.php" target="_blank" rel="noopener">eia.gov/opendata</a>.';document.getElementById("keyRow").style.display="flex";return;}
+  msg.textContent="Fetching current East Coast average…";
+  var url="https://api.eia.gov/v2/petroleum/pri/gnd/data/?frequency=weekly&data[0]=value&facets[product][]=EPMR&facets[duoarea][]=R10&sort[0][column]=period&sort[0][direction]=desc&length=1&api_key="+encodeURIComponent(key);
+  fetch(url).then(function(r){return r.json();}).then(function(j){
+    var row=j&&j.response&&j.response.data&&j.response.data[0];
+    if(row&&row.value){
+      data.settings.gasPrice=+(+row.value).toFixed(2);
+      document.getElementById("gasPrice").value=data.settings.gasPrice;
+      queueSave();recalcFuel();renderBudget();
+      msg.innerHTML='Updated to <b>$'+data.settings.gasPrice.toFixed(2)+'/gal</b> — EIA East Coast regular, week of '+(row.period||'')+'.';
+    } else { msg.textContent="EIA returned no data — check the key, or type today's price by hand."; }
+  }).catch(function(){msg.innerHTML="Couldn't reach EIA from this file (the provider may block browser requests, or you're offline). Just type today's price above — it works the same.";});
+}
+
+/* ---------- Live location ---------- */
+var userPos=null;
+function buildManual(){var sel=document.getElementById("manualSel");sel.innerHTML='<option value="">— choose a stop —</option>'+activeStops().map(function(s,i){return '<option value="'+i+'">'+s.name+'</option>';}).join("");}
+function setUser(lat,lng){
+  userPos={lat:lat,lng:lng};
+  if(map){if(youMarker)map.removeLayer(youMarker);var icon=L.divIcon({className:"",iconSize:[18,18],iconAnchor:[9,9],html:'<div style="width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid '+getCss("--teal")+';box-shadow:0 0 0 2px rgba(47,112,119,.4)"></div>'});youMarker=L.marker([lat,lng],{icon:icon}).addTo(map);map.setView([lat,lng],7);}
+  computeLive();injectYouHere();
+}
+function computeLive(){
+  var box=document.getElementById("liveStatus"),cards=document.getElementById("liveCards");
+  if(!userPos){box.innerHTML="";cards.style.display="none";return;}
+  var stops=activeStops(),best=-1,bd=1e9;
+  stops.forEach(function(s,i){var d=haversine(userPos.lat,userPos.lng,s.lat,s.lng);if(d<bd){bd=d;best=i;}});
+  var nextI=(best<stops.length-1)?best+1:best; if(bd<8&&best<stops.length-1)nextI=best+1;
+  var next=stops[nextI],straight=haversine(userPos.lat,userPos.lng,next.lat,next.lng),road=straight*1.2,eta=road/60*60;
+  box.innerHTML='<div class="head">Nearest stop: '+stops[best].name+(bd<8?' — you\'re basically there':'')+'</div>Next stop on the route is <b>'+next.name+'</b>'+(next.hotel?(' — '+esc(next.hotel)):'')+'.';
+  cards.style.display="grid";
+  cards.innerHTML=c("To next stop",fmtMiles(road),"road est.")+c("Rough drive",fmtDur(eta),"~60 mph")+c("Straight line",fmtMiles(straight),"crow flies")+c("Your position",userPos.lat.toFixed(3)+", "+userPos.lng.toFixed(3),"");
+  function c(k,v,s){return '<div class="lc"><div class="k">'+k+'</div><div class="v">'+v+(s?' <small>'+s+'</small>':'')+'</div></div>';}
+}
+function injectYouHere(){
+  document.querySelectorAll(".youhere").forEach(function(e){e.remove();});
+  if(!userPos)return;
+  var stops=data.northbound.concat(data.settings.roundTrip?data.returnLeg:[]),best=-1,bd=1e9;
+  stops.forEach(function(s,i){var d=haversine(userPos.lat,userPos.lng,s.lat,s.lng);if(d<bd){bd=d;best=i;}});
+  if(best<0)return;
+  var nextI=Math.min(best+1,stops.length-1),next=stops[nextI],road=haversine(userPos.lat,userPos.lng,next.lat,next.lng)*1.2;
+  var arr,idx;if(best<data.northbound.length){arr="northbound";idx=best;}else{arr="returnLeg";idx=best-data.northbound.length;}
+  var row=document.querySelector('.stop[data-arr="'+arr+'"][data-i="'+idx+'"]');if(!row)return;
+  var b=document.createElement("div");b.className="youhere";
+  b.innerHTML='<span class="pp"></span><span>You are here — nearest <b>'+stops[best].name+'</b>'+(best<stops.length-1?(', about <b>'+fmtMiles(road)+'</b> to '+next.name):', final stop')+'</span>';
+  row.insertAdjacentElement("afterend",b);
+}
+function detectToday(){
+  var box=document.getElementById("todayBox"),today=new Date();today.setHours(12,0,0,0);var match=null,prev=null;
+  for(var i=0;i<data.northbound.length;i++){var d=parseDate(data.northbound[i].date);if(d&&d.toDateString()===today.toDateString()){match=data.northbound[i];prev=data.northbound[i-1]||null;break;}}
+  if(match){var line=(prev&&(+match.miles>0))?('Today you drive <b>'+prev.name+' &rarr; '+match.name+'</b> ('+fmtMiles(+match.miles)+', ~'+fmtDur(+match.mins)+' driving). Leave by '+(match.depart||data.settings.defaultDepart)+'.'):('Today: <b>'+match.name+'</b> — '+esc(match.hotel)+'.');
+    box.innerHTML='<div class="todaybanner">'+line+' Hit “Use my location” to track the leg.</div>';}
+  else box.innerHTML="";
+}
+
+/* ---------- Controls ---------- */
+function bindGlobal(){
+  var s=data.settings;
+  document.getElementById("mpg").value=s.mpg;
+  document.getElementById("gasPrice").value=s.gasPrice;
+  document.getElementById("fuelMiles").value=s.fuelMiles;
+  document.getElementById("breakIntervalH").value=s.breakIntervalH;
+  document.getElementById("breakLen").value=s.breakLen;
+  document.getElementById("lunchLen").value=s.lunchLen;
+  document.getElementById("defaultDepart").value=s.defaultDepart;
+  document.getElementById("tankGal").value=s.tankGal;
+  document.getElementById("reservePct").value=s.reservePct;
+  document.getElementById("roundTrip").checked=s.roundTrip;
+  document.getElementById("showWithStops").checked=s.showWithStops;
+  document.getElementById("maxDailyH").value=(s.maxDailyH==null?8:s.maxDailyH);
+
+  /* renderAll() runs on every import/reset, so only wire the listeners once. */
+  if(window._globalBound)return;
+  window._globalBound=true;
+
+  document.getElementById("maxDailyH").addEventListener("input",function(e){data.settings.maxDailyH=+e.target.value||0;queueSave();renderChips();renderRoute();});
+  document.getElementById("mapAddMode").addEventListener("click",function(){setMapAddMode();});
+  document.getElementById("optimizeOrder").addEventListener("click",reoptimizeRoute);
+
+  ["mpg","fuelMiles"].forEach(function(k){document.getElementById(k).addEventListener("input",function(e){data.settings[k]=+e.target.value||0;queueSave();renderBudget();renderChips();});});
+  document.getElementById("gasPrice").addEventListener("input",function(e){data.settings.gasPrice=+e.target.value||0;queueSave();renderBudget();});
+  ["breakIntervalH","breakLen","lunchLen"].forEach(function(k){document.getElementById(k).addEventListener("input",function(e){data.settings[k]=+e.target.value||0;queueSave();renderChips();renderDrive();renderRoute();drawRouteOnMap();});});
+  ["tankGal","reservePct"].forEach(function(k){document.getElementById(k).addEventListener("input",function(e){data.settings[k]=+e.target.value||0;queueSave();renderChips();renderRoute();});});
+  document.getElementById("defaultDepart").addEventListener("input",function(e){data.settings.defaultDepart=e.target.value;queueSave();renderRoute();detectToday();});
+  document.getElementById("showWithStops").addEventListener("change",function(e){data.settings.showWithStops=e.target.checked;queueSave();renderDrive();});
+  document.getElementById("roundTrip").addEventListener("change",function(e){data.settings.roundTrip=e.target.checked;queueSave();renderTitle();renderChips();renderRoute();renderDrive();drawRouteOnMap();buildManual();computeLive();updateFullGmaps();});
+
+  document.getElementById("printBtn").addEventListener("click",function(){buildPrintSheet();setTimeout(function(){window.print();},60);});
+  document.getElementById("shareBtn").addEventListener("click",shareLink);
+
+  document.getElementById("addLine").addEventListener("click",function(){data.budget.push({cat:"Other",label:"New item",amt:0,status:"est"});queueSave();renderBudget();});
+
+  document.getElementById("exportBtn").addEventListener("click",function(){var blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="road-trip-data.json";a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},500);});
+  document.getElementById("importBtn").addEventListener("click",function(){document.getElementById("importFile").click();});
+  document.getElementById("importFile").addEventListener("change",function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{data=JSON.parse(r.result);legGeo={};saveLegGeo();save();renderAll();fetchAllRoutes();}catch(err){alert("That file couldn't be read as trip data.");}};r.readAsText(f);e.target.value="";});
+  document.getElementById("resetBtn").addEventListener("click",function(){if(confirm("Clear this trip and start over? Export it first if you want to keep it.")){data=defaults();legGeo={};saveLegGeo();save();renderAll();var nt=document.getElementById("tbNewTrip");if(nt)nt.click();}});
+
+  document.getElementById("refreshRoutes").addEventListener("click",function(){legGeo={};saveLegGeo();fetchAllRoutes();});var _ti=document.getElementById("mbToken"),_tb=document.getElementById("mbTokenSave"),_tn=document.getElementById("mbTokenNote");if(_ti){try{_ti.value=(localStorage.getItem("mb_mapbox_token")||"");}catch(e){}}if(_tb)_tb.addEventListener("click",function(){var v=(_ti.value||"").trim();try{if(v)localStorage.setItem("mb_mapbox_token",v);else localStorage.removeItem("mb_mapbox_token");}catch(e){}MAPBOX_TOKEN=v;legGeo={};saveLegGeo();if(_tn)_tn.textContent=v?"Saved — fetching live-traffic times…":"Cleared — using OSRM.";fetchAllRoutes();});
+  document.getElementById("fetchGas").addEventListener("click",fetchGas);
+  document.getElementById("toggleKey").addEventListener("click",function(){var k=document.getElementById("keyRow");k.style.display=k.style.display==="none"?"flex":"none";document.getElementById("eiaKey").value=getEiaKey();});
+  document.getElementById("saveKey").addEventListener("click",function(){try{localStorage.setItem(EIA_KEY_STORE,document.getElementById("eiaKey").value.trim());document.getElementById("gasMsg").textContent="Key saved to this browser. Now hit “Fetch current EIA average.”";}catch(e){document.getElementById("gasMsg").textContent="Couldn't save the key in this browser.";}});
+
+  document.getElementById("locateBtn").addEventListener("click",function(){
+    if(!navigator.geolocation){showManual("This browser has no location support.");return;}
+    document.getElementById("liveStatus").innerHTML="Locating…";
+    navigator.geolocation.getCurrentPosition(function(p){setUser(p.coords.latitude,p.coords.longitude);},function(err){showManual("Couldn't get location ("+err.message+").");},{enableHighAccuracy:true,timeout:10000,maximumAge:60000});
+  });
+  document.getElementById("clearLoc").addEventListener("click",function(){userPos=null;if(youMarker&&map){map.removeLayer(youMarker);youMarker=null;}document.getElementById("liveStatus").innerHTML="";document.getElementById("liveCards").style.display="none";injectYouHere();});
+  document.getElementById("manualSel").addEventListener("change",function(e){if(e.target.value==="")return;var s=activeStops()[+e.target.value];setUser(s.lat,s.lng);});
+}
+function showManual(msg){document.getElementById("liveStatus").innerHTML="<span style='color:var(--danger)'>"+msg+"</span>";document.getElementById("manualPick").style.display="block";}
+
+/* ================= Shared geocoding + route geometry helpers ================= */
+/* Nominatim asks for at most one request a second, so every lookup on the page —
+   typed search, map click, auto-planner — goes through one polite queue. */
+var _nomQ=[],_nomBusy=false,_nomLast=0;
+function _nomPump(){
+  if(_nomBusy||!_nomQ.length)return;
+  _nomBusy=true;
+  var wait=Math.max(0,1100-(Date.now()-_nomLast));
+  setTimeout(function(){
+    var job=_nomQ.shift(); _nomLast=Date.now();
+    fetch(job.u,{headers:{"Accept":"application/json"}})
+      .then(function(r){if(!r.ok)throw 0;return r.json();})
+      .then(function(j){job.res(j);},function(e){job.rej(e);})
+      .then(function(){_nomBusy=false;_nomPump();});
+  },wait);
+}
+function nomFetch(url){return new Promise(function(res,rej){_nomQ.push({u:url,res:res,rej:rej});_nomPump();});}
+var US_ST={"alabama":"AL","alaska":"AK","arizona":"AZ","arkansas":"AR","california":"CA","colorado":"CO","connecticut":"CT","delaware":"DE","district of columbia":"DC","florida":"FL","georgia":"GA","hawaii":"HI","idaho":"ID","illinois":"IL","indiana":"IN","iowa":"IA","kansas":"KS","kentucky":"KY","louisiana":"LA","maine":"ME","maryland":"MD","massachusetts":"MA","michigan":"MI","minnesota":"MN","mississippi":"MS","missouri":"MO","montana":"MT","nebraska":"NE","nevada":"NV","new hampshire":"NH","new jersey":"NJ","new mexico":"NM","new york":"NY","north carolina":"NC","north dakota":"ND","ohio":"OH","oklahoma":"OK","oregon":"OR","pennsylvania":"PA","rhode island":"RI","south carolina":"SC","south dakota":"SD","tennessee":"TN","texas":"TX","utah":"UT","vermont":"VT","virginia":"VA","washington":"WA","west virginia":"WV","wisconsin":"WI","wyoming":"WY","puerto rico":"PR","ontario":"ON","quebec":"QC","québec":"QC","british columbia":"BC","alberta":"AB","manitoba":"MB","saskatchewan":"SK","nova scotia":"NS","new brunswick":"NB","newfoundland and labrador":"NL"};
+function stAbbr(n){if(!n)return "";var k=String(n).toLowerCase().trim();if(US_ST[k])return US_ST[k];return (String(n).length<=3)?String(n).toUpperCase():String(n);}
+/* Turn a Nominatim result into a short, human "City, ST" label. */
+function placeName(o){
+  var a=(o&&o.address)||{};
+  var city=a.city||a.town||a.village||a.hamlet||a.municipality||a.borough||a.suburb||a.county||a.state||"";
+  city=String(city).replace(/^(City|Town|Township|Village) of\s+/i,"").replace(/\s+(County|Township)$/i,"");
+  var st="";
+  if(a["ISO3166-2-lvl4"])st=String(a["ISO3166-2-lvl4"]).split("-").pop();
+  else if(a.state)st=stAbbr(a.state);
+  if(city&&st&&city.toLowerCase()!==String(a.state||"").toLowerCase())return city+", "+st;
+  if(city)return city;
+  return String((o&&o.display_name)||"").split(",")[0];
+}
+function geocode(q){
+  return nomFetch("https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&q="+encodeURIComponent(q))
+    .then(function(a){
+      if(a&&a.length&&a[0].lat)return {lat:+a[0].lat,lng:+a[0].lon,label:a[0].display_name,name:placeName(a[0])};
+      throw 0;
+    });
+}
+function revGeocode(lat,lng){
+  return nomFetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=12&lat="+lat+"&lon="+lng)
+    .then(function(j){
+      var nm=placeName(j);
+      return {lat:lat,lng:lng,name:nm||("Stop at "+(+lat).toFixed(2)+", "+(+lng).toFixed(2)),label:(j&&j.display_name)||""};
+    });
+}
+/* Real road route through any number of waypoints (used for previews + auto-planning). */
+function osrmRoute(pts){
+  if(!pts||pts.length<2||typeof fetch==="undefined")return Promise.resolve(null);
+  var s=pts.map(function(p){return (+p.lng)+","+(+p.lat);}).join(";");
+  return fetch("https://router.project-osrm.org/route/v1/driving/"+s+"?overview=full&geometries=geojson")
+    .then(function(r){return r.json();})
+    .then(function(j){
+      var rt=j&&j.routes&&j.routes[0];
+      if(!rt||!rt.geometry||!rt.geometry.coordinates)return null;
+      return {coords:rt.geometry.coordinates.map(function(c){return [c[1],c[0]];}),
+              miles:rt.distance/1609.34,mins:rt.duration/60,
+              legs:(rt.legs||[]).map(function(l){return {miles:l.distance/1609.34,mins:l.duration/60};})};
+    })
+    .catch(function(){return null;});
+}
+/* Straight-line stand-in when the routing server can't be reached: pad 22% for roads, ~60 mph. */
+function estRoute(pts){
+  var mi=0,co=[];
+  for(var i=0;i<pts.length;i++){co.push([+pts[i].lat,+pts[i].lng]);if(i)mi+=haversine(+pts[i-1].lat,+pts[i-1].lng,+pts[i].lat,+pts[i].lng)*1.22;}
+  return {coords:co,miles:mi,mins:mi,legs:[],est:true};
+}
+function polyAt(coords,f){
+  if(!coords||coords.length<2)return coords&&coords[0]?coords[0]:null;
+  var cum=[0],i;
+  for(i=1;i<coords.length;i++)cum.push(cum[i-1]+haversine(coords[i-1][0],coords[i-1][1],coords[i][0],coords[i][1]));
+  var tot=cum[cum.length-1];
+  if(tot<=0)return coords[0];
+  var t=Math.max(0,Math.min(1,f))*tot;
+  for(i=1;i<coords.length;i++){
+    if(cum[i]>=t){var seg=cum[i]-cum[i-1],r=seg>0?(t-cum[i-1])/seg:0;
+      return [coords[i-1][0]+(coords[i][0]-coords[i-1][0])*r,coords[i-1][1]+(coords[i][1]-coords[i-1][1])*r];}
+  }
+  return coords[coords.length-1];
+}
+/* Duration matrix between every pair of points — one request instead of N route calls.
+   Used to work out where a new stop actually belongs by drive time, not by crow-flight. */
+function osrmTable(pts){
+  if(!pts||pts.length<2||typeof fetch==="undefined")return Promise.resolve(null);
+  if(pts.length>90)return Promise.resolve(null);
+  var s=pts.map(function(p){return (+p.lng)+","+(+p.lat);}).join(";");
+  return fetch("https://router.project-osrm.org/table/v1/driving/"+s+"?annotations=duration")
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(!j||!j.durations||!j.durations.length)return null;
+      return j.durations.map(function(row){return row.map(function(v){return (v==null?null:v/60);});});
+    })
+    .catch(function(){return null;});
+}
+/* Stand-in matrix when the routing server is unreachable: padded straight lines at ~60 mph. */
+function crowTable(pts){
+  return pts.map(function(a){return pts.map(function(b){return haversine(+a.lat,+a.lng,+b.lat,+b.lng)*1.22;});});
+}
+function tableOrCrow(pts){
+  return osrmTable(pts).then(function(D){return D&&D.length===pts.length?{D:D,real:true}:{D:crowTable(pts),real:false};});
+}
+function pathCost(D,order){
+  var t=0;
+  for(var k=1;k<order.length;k++){var v=D[order[k-1]][order[k]];t+=(v==null?1e9:v);}
+  return t;
+}
+/* Where does point `x` slot into the chain so the whole trip gains the least time? */
+function bestInsert(D,chain,x){
+  var best=chain.length-1,bd=Infinity;
+  for(var k=0;k<chain.length;k++){
+    var add=(k===chain.length-1)
+      ? (D[chain[k]][x]||1e9)                                        /* tack on the end */
+      : (D[chain[k]][x]||1e9)+(D[x][chain[k+1]]||1e9)-(D[chain[k]][chain[k+1]]||0);
+    if(add<bd){bd=add;best=k;}
+  }
+  return {after:best,added:bd};
+}
+/* Cheapest-insertion then 2-opt, with the first and last points pinned in place. */
+function optimizeChain(D,n,pinFirst,pinLast){
+  var free=[],k;
+  for(k=(pinFirst?1:0);k<(pinLast?n-1:n);k++)free.push(k);
+  var chain=[];
+  if(pinFirst)chain.push(0);
+  if(pinLast)chain.push(n-1);
+  if(chain.length<2)chain=free.splice(0,1);
+  free.sort(function(a,b){return (D[0][a]||0)-(D[0][b]||0);});
+  free.forEach(function(x){
+    var s=bestInsert(D,chain,x);
+    chain.splice(s.after+1,0,x);
+  });
+  var lo=pinFirst?1:0,hi=chain.length-(pinLast?1:0);
+  var improved=true,guard=0;
+  while(improved&&guard++<60){
+    improved=false;
+    for(var a=lo;a<hi-1;a++){
+      for(var b=a+1;b<hi;b++){
+        var cand=chain.slice(0,a).concat(chain.slice(a,b+1).reverse(),chain.slice(b+1));
+        if(pathCost(D,cand)<pathCost(D,chain)-0.01){chain=cand;improved=true;}
+      }
+    }
+  }
+  return chain;
+}
+/* Dates follow the departure day and how many nights each stop holds. */
+function resequenceTripDates(){
+  var nb=data.northbound;
+  if(!nb.length||!nb[0].date)return;
+  var start=nb[0].date,d=0;
+  for(var i=1;i<nb.length;i++){
+    nb[i].date=shiftISO(start,d);
+    if(!nb[i].waypoint)d+=Math.max(1,Math.round(+nb[i].nights||1));
+  }
+}
+function maxDailyMin(){return (+data.settings.maxDailyH||8)*60;}
+function shiftISO(iso,days){var d=parseDate(iso);if(!d)return iso;d.setDate(d.getDate()+days);return _isoD(d);}
+/* Push this stop and every stop after it out by N days (used when an overnight is inserted). */
+function shiftDatesFrom(arr,i,days){
+  var order=["northbound","returnLeg"],start=order.indexOf(arr);
+  if(start<0||!days)return;
+  for(var oi=start;oi<order.length;oi++){
+    var a=order[oi],from=(oi===start)?i:0,list=data[a]||[];
+    for(var k=from;k<list.length;k++){if(list[k].date)list[k].date=shiftISO(list[k].date,days);}
+  }
+}
+
+/* ================= Printable itinerary ================= */
+function buildPrintSheet(){
+  var host=document.getElementById("printSheet");
+  if(!host)return;
+  var nb=data.northbound||[],rl=(data.settings.roundTrip?(data.returnLeg||[]):[]);
+  if(!nb.length){host.innerHTML="";return;}
+  var rows="",dayNo=0;
+  function block(arr,list,title){
+    if(!list.length)return;
+    rows+='<tr class="psec"><td colspan="6">'+title+'</td></tr>';
+    list.forEach(function(s,i){
+      var prev=prevStop(arr,i);
+      var mins=+s.mins||0,st=legStops(mins);
+      var dep=s.origin?"":m2t(t2m(s.depart||data.settings.defaultDepart));
+      var arrTime=(!s.origin&&mins>0)?m2t(t2m(s.depart||data.settings.defaultDepart)+mins+st.added):"";
+      var n=Math.max(1,Math.round(+s.nights||1));
+      rows+='<tr>'+
+        '<td class="pd">'+(s.date?fmtDate(s.date):"—")+(n>1?'<br><span class="psub">'+n+' nights</span>':'')+'</td>'+
+        '<td class="pn"><b>'+esc(s.name)+'</b>'+
+          (s.event?' <span class="pev">'+esc(s.event)+'</span>':'')+
+          (prev&&!s.origin?'<br><span class="psub">from '+esc(shortLoc(prev.name))+'</span>':'')+
+          (s.lunchPin?'<br><span class="psub">meal: '+esc(s.lunchPin.name)+'</span>':'')+'</td>'+
+        '<td class="pnum">'+(s.origin?"—":fmtMiles(+s.miles||0))+'</td>'+
+        '<td class="pnum">'+(s.origin?"—":fmtDur(mins))+'</td>'+
+        '<td class="pnum">'+(dep&&arrTime?(dep+" → "+arrTime):"—")+'</td>'+
+        '<td class="ph">'+esc(s.hotel||"")+(s.conf?'<br><span class="psub">'+esc(s.conf)+'</span>':'')+'</td>'+
+      '</tr>';
+      if(!s.origin&&!s.waypoint&&n>1&&s.date){
+        for(var k=1;k<n;k++){
+          rows+='<tr class="prest"><td class="pd">'+fmtDate(shiftISO(s.date,k))+'</td>'+
+            '<td class="pn">Rest day — '+esc(shortLoc(s.name))+
+            ((s.restNotes&&s.restNotes[k-1])?'<br><span class="psub">'+esc(s.restNotes[k-1])+'</span>':'')+'</td>'+
+            '<td class="pnum">—</td><td class="pnum">—</td><td class="pnum">—</td><td class="ph"></td></tr>';
+        }
+      }
+    });
+  }
+  block("northbound",nb,"Outbound");
+  block("returnLeg",rl,"The way home");
+  var rt=data.settings.roundTrip;
+  var known=0,est=0;
+  (data.budget||[]).forEach(function(b){var a=+b.amt||0;if(b.status==="known")known+=a;else est+=a;});
+  var from=shortLoc(nb[0].name),to=shortLoc(nb[nb.length-1].name);
+  host.innerHTML=
+    '<div class="phead"><div class="ptitle">'+esc(from)+' → '+esc(to)+(rt?' → '+esc(from):'')+'</div>'+
+      '<div class="pmeta">'+esc(data.settings.tripName||"Road trip")+
+      (nb[0].date?' · departs '+fmtDate(nb[0].date):'')+'</div></div>'+
+    '<div class="pstats">'+
+      '<span><b>'+fmtMiles(legMiles(rt))+'</b> total</span>'+
+      '<span><b>'+fmtDur(legMins(rt))+'</b> driving</span>'+
+      '<span><b>'+fmtDur(withStopsTotal(rt))+'</b> with breaks</span>'+
+      '<span><b>'+totalFuelStops(rt)+'</b> fuel stops</span>'+
+      '<span><b>'+fmtMoney(known+est)+'</b> budget</span>'+
+    '</div>'+
+    '<table class="ptable"><thead><tr><th>Date</th><th>Stop</th><th class="pnum">Miles</th>'+
+      '<th class="pnum">Driving</th><th class="pnum">Depart → arrive</th><th>Booking</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table>'+
+    '<div class="pfoot">Times include your '+fmtDur((+data.settings.breakLen||0))+' breaks every '+
+      (+data.settings.breakIntervalH||2)+'h and a '+fmtDur(+data.settings.lunchLen||0)+' meal stop on long days. '+
+      'Distances and drive times from OpenStreetMap / OSRM.</div>';
+}
+
+/* ================= Share link ================= */
+/* A compact payload in the URL hash — small enough to paste into a message. */
+function packTrip(){
+  function pk(s){
+    var o=[s.name,s.date||"",(+s.lat).toFixed(4),(+s.lng).toFixed(4),
+           Math.round(+s.miles||0),Math.round(+s.mins||0),s.depart||"",
+           Math.max(1,Math.round(+s.nights||1)),s.hotel||"",s.event||"",
+           (s.origin?1:0)|(s.waypoint?2:0)|(s.tentative?4:0)];
+    return o;
+  }
+  var t={v:1,n:data.settings.tripName||"",s:[data.settings.mpg,data.settings.gasPrice,data.settings.tankGal,
+        data.settings.reservePct,data.settings.breakIntervalH,data.settings.breakLen,data.settings.lunchLen,
+        data.settings.maxDailyH,data.settings.defaultDepart,data.settings.roundTrip?1:0],
+        o:data.northbound.map(pk),r:(data.returnLeg||[]).map(pk),
+        b:(data.budget||[]).map(function(b){return [b.cat,b.label,+b.amt||0,b.status==="known"?1:0];})};
+  var json=JSON.stringify(t);
+  return btoa(unescape(encodeURIComponent(json))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function unpackTrip(str){
+  try{
+    var b=str.replace(/-/g,"+").replace(/_/g,"/");
+    while(b.length%4)b+="=";
+    var t=JSON.parse(decodeURIComponent(escape(atob(b))));
+    if(!t||t.v!==1||!t.o||!t.o.length)return null;
+    function un(a){
+      var s={name:a[0],date:a[1],lat:+a[2],lng:+a[3],miles:+a[4],mins:+a[5],depart:a[6],
+             nights:+a[7]||1,hotel:a[8]||"",event:a[9]||"",conf:""};
+      var f=+a[10]||0;
+      if(f&1)s.origin=true;
+      if(f&2)s.waypoint=true;
+      if(f&4)s.tentative=true;
+      return s;
+    }
+    var d=defaults();
+    d.settings.tripName=t.n||"";
+    var S=t.s||[];
+    d.settings.mpg=+S[0]||22;d.settings.gasPrice=+S[1]||3.5;d.settings.tankGal=+S[2]||14;
+    d.settings.reservePct=+S[3]||20;d.settings.breakIntervalH=+S[4]||2;d.settings.breakLen=+S[5]||15;
+    d.settings.lunchLen=+S[6]||60;d.settings.maxDailyH=+S[7]||8;d.settings.defaultDepart=S[8]||"08:00";
+    d.settings.roundTrip=!!S[9];
+    d.northbound=t.o.map(un);
+    d.returnLeg=(t.r||[]).map(un);
+    d.budget=(t.b||[]).map(function(x){return {cat:x[0],label:x[1],amt:+x[2]||0,status:x[3]?"known":"est"};});
+    return d;
+  }catch(e){return null;}
+}
+function shareLink(){
+  var url=location.href.split("#")[0]+"#trip="+packTrip();
+  var note=document.getElementById("shareNote");
+  function done(msg){if(note){note.textContent=msg;setTimeout(function(){note.textContent="";},6000);}}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){
+      done("Link copied — "+Math.round(url.length/1024*10)/10+" KB. Anyone who opens it gets this trip.");
+    }).catch(function(){prompt("Copy this link:",url);done("");});
+  } else {
+    prompt("Copy this link:",url);
+  }
+}
+function checkSharedLink(){
+  var h=location.hash||"";
+  if(h.indexOf("#trip=")!==0)return false;
+  var d=unpackTrip(h.slice(6));
+  if(!d){setRouteStatus("That share link couldn’t be read.");return false;}
+  var name=shortLoc(d.northbound[0].name)+" → "+shortLoc(d.northbound[d.northbound.length-1].name);
+  var have=(data.northbound||[]).length>0;
+  var msg=have
+    ? "This link contains a trip:\n\n  "+name+"\n  "+d.northbound.length+" stops\n\nOpen it? Your current trip will be replaced (export it first if you want to keep it)."
+    : "This link contains a trip:\n\n  "+name+"\n  "+d.northbound.length+" stops\n\nOpen it?";
+  if(!confirm(msg))return false;
+  data=d;legGeo={};saveLegGeo();save();
+  try{history.replaceState(null,"",location.href.split("#")[0]);}catch(e){}
+  return true;
+}
+
+/* ================= The way home ================= */
+/* The return leg was never actually built — this plans it the same way the outbound is
+   planned: route the last stop back to the start, split it into days at your max, and
+   find a town to sleep in for each night in between. */
+function homewardStart(){
+  var nb=data.northbound;
+  if(nb.length<2)return null;
+  var last=nb[nb.length-1];
+  if(!last.date)return "";
+  return shiftISO(last.date,Math.max(1,Math.round(+last.nights||1)));
+}
+function planReturnLeg(){
+  var nb=data.northbound;
+  if(nb.length<2){setRouteStatus("Add the outbound stops first.");return Promise.resolve(false);}
+  var last=nb[nb.length-1],home=nb[0];
+  var btn=document.getElementById("planReturn");
+  if(btn){btn.disabled=true;btn.textContent="Planning the way home…";}
+  setRouteStatus("Routing "+shortLoc(last.name)+" back to "+shortLoc(home.name)+"…");
+  return osrmRoute([last,home]).then(function(rt){
+    var r=rt||estRoute([last,home]);
+    var lim=maxDailyMin();
+    var days=Math.max(1,Math.ceil(r.mins/lim));
+    var fr=[],k;
+    for(k=1;k<days;k++)fr.push(k/days);
+    setRouteStatus(fr.length?("Finding "+fr.length+" town"+(fr.length>1?"s":"")+" to stop in on the way back…"):"Building the way home…");
+    return Promise.all(fr.map(function(f,idx){
+      var p=polyAt(r.coords,f);
+      return revGeocode(p[0],p[1]).catch(function(){return {lat:p[0],lng:p[1],name:"Overnight "+(idx+1)};});
+    })).then(function(list){return {r:r,days:days,list:list};});
+  }).then(function(R){
+    var leave=homewardStart(),stamp=Date.now();
+    var out=R.list.map(function(x,k){
+      return {id:"r"+stamp+"_"+k,name:x.name,hotel:"",date:leave?shiftISO(leave,k):"",
+              lat:x.lat,lng:x.lng,miles:0,mins:0,nights:1,
+              depart:data.settings.defaultDepart||"08:00",tentative:true,auto:true};
+    });
+    out.push({id:"rhome"+stamp,name:home.name,hotel:home.hotel||"",date:leave?shiftISO(leave,R.days-1):"",
+              lat:home.lat,lng:home.lng,miles:0,mins:0,nights:1,
+              depart:data.settings.defaultDepart||"08:00",home:true});
+    data.returnLeg=out;
+    data.settings.roundTrip=true;
+    var rc=document.getElementById("roundTrip");
+    if(rc)rc.checked=true;
+    /* lodging lines for the nights on the way back, but not for sleeping at home */
+    out.forEach(function(st){
+      if(!st.home)data.budget.push({cat:"Lodging",label:"Return night — "+st.name,amt:0,status:"est"});
+    });
+    legGeo={};saveLegGeo();queueSave();renderAll();fetchAllRoutes();
+    var btn2=document.getElementById("planReturn");
+    if(btn2){btn2.disabled=false;btn2.textContent="Re-plan the way home";}
+    setRouteStatus("Way home planned — "+R.days+" driving day"+(R.days>1?"s":"")+", "+
+      Math.round(R.r.miles).toLocaleString()+" mi"+(R.r.est?" (estimated)":"")+".");
+    return true;
+  }).catch(function(){
+    var btn3=document.getElementById("planReturn");
+    if(btn3){btn3.disabled=false;btn3.textContent="Plan the way home";}
+    setRouteStatus("Couldn’t plan the way home — try again in a moment.");
+    return false;
+  });
+}
+function renderReturnHead(){
+  var head=document.getElementById("retHead");
+  if(!head)return;
+  var on=data.settings.roundTrip,has=(data.returnLeg||[]).length>0;
+  head.style.display=on?"":"none";
+  document.getElementById("routeRet").style.display=on?"":"none";
+  var box=document.getElementById("retActions");
+  if(!box)return;
+  box.style.display=on?"":"none";
+  box.innerHTML=on?('<button type="button" class="routebtn'+(has?'':' solid')+'" id="planReturn">'+
+    (has?"Re-plan the way home":"Plan the way home")+'</button>'+
+    (has?'<button type="button" class="routebtn" id="clearReturn">Clear it</button>':
+         '<span class="routestatus">Nothing planned back yet — this works out the drive home and where to sleep.</span>')):"";
+  var pb=document.getElementById("planReturn");
+  if(pb)pb.addEventListener("click",planReturnLeg);
+  var cb=document.getElementById("clearReturn");
+  if(cb)cb.addEventListener("click",function(){
+    data.returnLeg=[];
+    data.budget=data.budget.filter(function(b){return String(b.label||"").indexOf("Return night — ")!==0;});
+    queueSave();renderAll();
+  });
+}
+
+/* ================= B1 · days that run past the max drive per day ================= */
+function overLimitLegs(){
+  var lim=maxDailyMin(),bad=[];
+  function scan(arr){(data[arr]||[]).forEach(function(s,i){if(!s.origin&&prevStop(arr,i)&&(+s.mins||0)>lim+5)bad.push({arr:arr,i:i,s:s});});}
+  scan("northbound");
+  if(data.settings.roundTrip)scan("returnLeg");
+  return bad;
+}
+function dayWarnHtml(s,i,arr){
+  if(s.origin)return "";
+  var mins=+s.mins||0,lim=maxDailyMin();
+  if(!(mins>lim+5))return "";
+  var n=Math.ceil(mins/lim);
+  return '<div class="daywarn" data-arr="'+arr+'" data-i="'+i+'">'+
+    '<b>Long day.</b> '+fmtDur(mins)+' behind the wheel &mdash; past your '+fmtDur(lim)+' limit, and about '+
+    fmtDur(mins+legStops(mins).added)+' door to door once breaks are in. Split over '+n+' days it is roughly '+
+    fmtDur(mins/n)+' of driving each.'+
+    '<div class="dwbtns"><button type="button" class="dw-sug">Suggest '+(n>2?(n-1)+' overnight stops':'an overnight stop')+'</button></div>'+
+    '<div class="dwout"></div></div>';
+}
+function renderWarnBanner(){
+  var el=document.getElementById("warnBanner");
+  if(!el)return;
+  var bad=overLimitLegs();
+  if(!bad.length){el.innerHTML="";return;}
+  el.innerHTML='<div class="warnbanner"><b>'+bad.length+(bad.length>1?' days run':' day runs')+' past your '+
+    fmtDur(maxDailyMin())+' max.</b> '+bad.map(function(b){return esc(b.s.name)+" &middot; "+fmtDur(+b.s.mins||0);}).join(" &nbsp;|&nbsp; ")+
+    '. Open the day below and tap <b>Suggest an overnight stop</b> to break it up.</div>';
+}
+function bindDayWarn(){
+  if(window._dwBound)return;
+  window._dwBound=true;
+  document.addEventListener("click",function(e){
+    var t=e.target;
+    if(!t||!t.classList)return;
+    if(t.classList.contains("wxretry")){
+      t.textContent="…";
+      try{retryWeather(t.getAttribute("data-arr"),+t.getAttribute("data-i"));}catch(e2){}
+      return;
+    }
+    if(t.classList.contains("dw-sug"))suggestOvernights(t.closest(".daywarn"),t);
+    else if(t.classList.contains("dw-ins"))insertSuggested(t.closest(".daywarn"));
+    else if(t.classList.contains("dw-cx")){var b=t.closest(".daywarn");if(b){b._sug=null;b.querySelector(".dwout").innerHTML="";}}
+  });
+}
+function suggestOvernights(box,btn){
+  if(!box)return;
+  var arr=box.getAttribute("data-arr"),i=+box.getAttribute("data-i");
+  var s=data[arr]&&data[arr][i],prev=prevStop(arr,i);
+  var out=box.querySelector(".dwout");
+  if(!s||!prev||!out)return;
+  var mins=+s.mins||0,n=Math.ceil(mins/maxDailyMin()),fr=[],k;
+  for(k=1;k<n;k++)fr.push(k/n);
+  if(!fr.length){out.textContent="Nothing to split here.";return;}
+  var geo=legGeo[arr+":"+i];
+  var coords=(geo&&geo.coords&&geo.coords.length>1)?geo.coords:[[+prev.lat,+prev.lng],[+s.lat,+s.lng]];
+  if(btn)btn.disabled=true;
+  out.textContent="Looking up "+fr.length+" town"+(fr.length>1?"s":"")+" along the route…";
+  Promise.all(fr.map(function(f){
+    var p=polyAt(coords,f);
+    return revGeocode(p[0],p[1])
+      .then(function(r){r.atMin=Math.round(mins*f);return r;})
+      .catch(function(){return {lat:p[0],lng:p[1],name:"Overnight stop",atMin:Math.round(mins*f)};});
+  })).then(function(list){
+    box._sug=list;
+    if(btn)btn.disabled=false;
+    out.innerHTML=list.map(function(r){return '&#9679; <b>'+esc(r.name)+'</b> &mdash; about '+fmtDur(r.atMin)+' in';}).join("<br>")+
+      '<div class="dwbtns"><button type="button" class="dw-ins">Insert '+(list.length>1?'these overnights':'this overnight')+'</button>'+
+      '<button type="button" class="dw-cx sec">Not this time</button></div>'+
+      '<div style="color:#65797d;font-size:12px;margin-top:6px">Inserting adds '+list.length+' night'+(list.length>1?'s':'')+
+      ' to the trip &mdash; every date from here on shifts back to match.</div>';
+  }).catch(function(){
+    if(btn)btn.disabled=false;
+    out.textContent="Couldn’t look up a town there — try again in a moment.";
+  });
+}
+function insertSuggested(box){
+  if(!box)return;
+  var arr=box.getAttribute("data-arr"),i=+box.getAttribute("data-i"),list=box._sug;
+  if(!list||!list.length)return;
+  var s=data[arr]&&data[arr][i];
+  if(!s)return;
+  var base=s.date||"",stamp=Date.now();
+  var add=list.map(function(r,k){
+    return {id:"ins"+stamp+"_"+k,name:r.name,hotel:"",date:base?shiftISO(base,k):"",lat:r.lat,lng:r.lng,
+            miles:0,mins:0,depart:data.settings.defaultDepart||"08:00",tentative:true,auto:true,
+            note:"Suggested overnight — breaks up a "+fmtDur(+s.mins||0)+" day"};
+  });
+  shiftDatesFrom(arr,i,list.length);
+  data[arr].splice.apply(data[arr],[i,0].concat(add));
+  legGeo={};saveLegGeo();queueSave();renderAll();fetchAllRoutes();
+}
+
+/* ================= Click-to-add stops on the main map ================= */
+var mapAddMode=false,_mapProv=null;
+function clearMapProv(){if(_mapProv&&map){try{map.removeLayer(_mapProv);}catch(e){}}_mapProv=null;}
+function setMapAddMode(on){
+  mapAddMode=(on==null)?!mapAddMode:!!on;
+  var b=document.getElementById("mapAddMode"),m=document.getElementById("map");
+  if(b){b.textContent=mapAddMode?"✕ Done adding stops":"+ Add a stop by tapping the map";b.classList.toggle("solid",mapAddMode);}
+  if(m)m.classList.toggle("addmode-on",mapAddMode);
+  if(!mapAddMode)clearMapProv();
+  else setRouteStatus("Tap the map where you want a stop.");
+}
+function mapClickAdd(ll){
+  if(!map)return;
+  clearMapProv();
+  var icon=L.divIcon({className:"",iconSize:[28,28],iconAnchor:[14,14],html:'<div style="width:26px;height:26px;border-radius:50%;background:#fff;border:3px dashed '+getCss("--brass")+'"></div>'});
+  _mapProv=L.marker([ll.lat,ll.lng],{icon:icon}).addTo(map);
+  var box=document.createElement("div");
+  box.className="mapadd";
+  box.innerHTML='<div class="ma-name">Looking up this spot…</div>';
+  _mapProv.bindPopup(box,{minWidth:230}).openPopup();
+  revGeocode(ll.lat,ll.lng)
+    .then(function(r){mapAddForm(box,r);})
+    .catch(function(){mapAddForm(box,{lat:ll.lat,lng:ll.lng,name:"New stop"});});
+}
+function mapAddForm(box,r){
+  var nb=data.northbound;
+  var opts=nb.map(function(s,i){return '<option value="'+i+'">after '+esc(s.name)+'</option>';}).join("");
+  box.innerHTML='<div class="ma-name">'+esc(r.name)+'</div>'+
+    '<input class="ma-in ma-nm" value="'+esc(r.name)+'">'+
+    '<select class="ma-in ma-pos">'+opts+'</select>'+
+    '<div class="ma-note">Working out where it fits…</div>'+
+    '<input class="ma-in ma-dt" type="date" title="Date you stay here">'+
+    '<div class="ma-btns"><button type="button" class="ma-add">Add stop</button><button type="button" class="ma-cx">Cancel</button></div>';
+  var pos=box.querySelector(".ma-pos"),note=box.querySelector(".ma-note");
+  if(pos)pos.value=String(Math.max(0,nb.length-1));
+  function repop(){if(_mapProv&&_mapProv.getPopup()){try{_mapProv.getPopup().update();}catch(e){}}}
+  /* Work out, by real drive time, which leg this stop belongs in — and label every
+     option with what it would cost, so the route never doubles back on itself. */
+  var pts=nb.map(function(s){return {lat:+s.lat,lng:+s.lng};}).concat([{lat:r.lat,lng:r.lng}]);
+  tableOrCrow(pts).then(function(res){
+    var D=res.D,x=nb.length,chain=[];
+    for(var k=0;k<nb.length;k++)chain.push(k);
+    var costs=chain.map(function(_,k){
+      return (k===chain.length-1)?(D[chain[k]][x]||0)
+        :(D[chain[k]][x]||0)+(D[x][chain[k+1]]||0)-(D[chain[k]][chain[k+1]]||0);
+    });
+    var best=0;
+    for(var m=1;m<costs.length;m++)if(costs[m]<costs[best])best=m;
+    if(pos){
+      pos.innerHTML=nb.map(function(s,i){
+        return '<option value="'+i+'">after '+esc(s.name)+' &nbsp;+'+fmtDur(Math.max(0,costs[i]))+(i===best?' ✓ fastest':'')+'</option>';
+      }).join("");
+      pos.value=String(best);
+    }
+    if(note)note.innerHTML='Slots in after <b>'+esc(nb[best].name)+'</b> — adds '+fmtDur(Math.max(0,costs[best]))+' of driving'+
+      (res.real?'':' (estimated — routing server unreachable)')+'.';
+    repop();
+  });
+  box.querySelector(".ma-cx").addEventListener("click",clearMapProv);
+  box.querySelector(".ma-add").addEventListener("click",function(){
+    var after=+box.querySelector(".ma-pos").value||0;
+    var nm=box.querySelector(".ma-nm").value.trim()||r.name;
+    var dt=box.querySelector(".ma-dt").value;
+    data.northbound.splice(after+1,0,{id:"m"+Date.now(),name:nm,hotel:"",date:dt,lat:r.lat,lng:r.lng,
+      miles:0,mins:0,nights:1,depart:data.settings.defaultDepart||"08:00",tentative:true});
+    if(!dt)resequenceTripDates();
+    clearMapProv();
+    legGeo={};saveLegGeo();queueSave();renderAll();fetchAllRoutes();
+    flash("Stop added — re-routing");
+  });
+  repop();
+}
+/* Re-thread the whole trip for the shortest total driving, start and finish pinned. */
+function reoptimizeRoute(){
+  var nb=data.northbound;
+  if(nb.length<4){setRouteStatus("Not enough stops in between to re-order.");return;}
+  var btn=document.getElementById("optimizeOrder");
+  if(btn)btn.disabled=true;
+  setRouteStatus("Comparing every order for the shortest drive…");
+  var pts=nb.map(function(s){return {lat:+s.lat,lng:+s.lng};});
+  tableOrCrow(pts).then(function(res){
+    var D=res.D,n=nb.length;
+    var before=[];for(var k=0;k<n;k++)before.push(k);
+    var chain=optimizeChain(D,n,true,true);
+    var was=pathCost(D,before),now=pathCost(D,chain);
+    if(btn)btn.disabled=false;
+    var same=chain.join(",")===before.join(",");
+    if(same||now>=was-1){setRouteStatus("Your stops are already in the fastest order.");return;}
+    var names=chain.map(function(k){return shortLoc(nb[k].name);}).join(" → ");
+    if(!confirm("Re-order the stops for the shortest drive?\n\n"+names+
+                "\n\nSaves about "+fmtDur(was-now)+" of driving"+(res.real?"":" (estimated)")+
+                ".\nDates are renumbered from your departure day.")){
+      setRouteStatus("Left the order alone.");
+      return;
+    }
+    data.northbound=chain.map(function(k){return nb[k];});
+    resequenceTripDates();
+    legGeo={};saveLegGeo();queueSave();renderAll();fetchAllRoutes();
+    setRouteStatus("Re-ordered — about "+fmtDur(was-now)+" less driving.");
+  });
+}
+
+window.__rtRefresh=function(){try{fetchAllRoutes();}catch(e){}try{refreshGauge();}catch(e){}};
+function renderAll(){bindGlobal();renderTitle();renderChips();renderRoute();renderDrive();renderBudget();buildManual();detectToday();drawRouteOnMap();computeLive();updateFullGmaps();}
+
+document.addEventListener("DOMContentLoaded",function(){try{checkSharedLink();}catch(e){}renderTitle();initMap();if(data.northbound&&data.northbound.length){renderAll();gaugeWire();fetchAllRoutes();}setupTripBuilder();});
+
+var refreshGauge=function(){},gaugeWire=function(){},retryWeather=function(){},wxIconOuter=function(){return '';};
+(function(){
+  var cx=200,cy=200,rOut=126,rIn=97,rLabel=143,hubR=78;
+  var HUE={drive:["#93c2c8","#2f6a75"],"break":["#f2d6a3","#c98d3f"],lunch:["#f0b8a3","#c9694c"],fuel:["#d0c6e8","#85729f"]};
+  var BASE={"break":"#d99f52",lunch:"#d97a5c",fuel:"#9585c4"};
+  function hx(c){return [parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)];}
+  function lerp(a,b,t){t=Math.max(0,Math.min(1,t));var A=hx(a),B=hx(b);return "rgb("+Math.round(A[0]+(B[0]-A[0])*t)+","+Math.round(A[1]+(B[1]-A[1])*t)+","+Math.round(A[2]+(B[2]-A[2])*t)+")";}
+  function fmt(m){m=((Math.round(m)%1440)+1440)%1440;var h=Math.floor(m/60),x=m%60,ap=h<12?"a":"p",h12=h%12||12;return h12+":"+(x<10?"0":"")+x+ap;}
+  function dur(m){m=Math.max(0,Math.round(m));var h=Math.floor(m/60),x=m%60;return h?(h+"h "+(x<10?"0":"")+x+"m"):(x+"m");}
+  function cap(w){return w.charAt(0).toUpperCase()+w.slice(1);}
+  function ang(m){return ((m/60)%12)/12*360;}
+  function pt(a,r){var rad=a*Math.PI/180;return[cx+r*Math.sin(rad),cy-r*Math.cos(rad)];}
+  function arc(a0,a1,ri,ro){if(a1<=a0)a1+=360;var lg=(a1-a0)>180?1:0,A=pt(a0,ro),B=pt(a1,ro),C=pt(a1,ri),D=pt(a0,ri);return"M"+A[0]+" "+A[1]+"A"+ro+" "+ro+" 0 "+lg+" 1 "+B[0]+" "+B[1]+"L"+C[0]+" "+C[1]+"A"+ri+" "+ri+" 0 "+lg+" 0 "+D[0]+" "+D[1]+"Z";}
+  function needle(m,color,w,dash){var na=ang(m),tip=pt(na,rOut-2),tail=pt(na+180,18);return '<line x1="'+tail[0].toFixed(1)+'" y1="'+tail[1].toFixed(1)+'" x2="'+tip[0].toFixed(1)+'" y2="'+tip[1].toFixed(1)+'" stroke="'+color+'" stroke-width="'+w+'" stroke-linecap="round"'+(dash?' stroke-dasharray="2 5"':'')+'/>';}
+  function pumpIcon(px,py,col){return '<g transform="translate('+px+','+py+')" stroke="'+col+'" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M-7 7 V-6 a2 2 0 0 1 2 -2 h5 a2 2 0 0 1 2 2 V7" fill="'+col+'" fill-opacity="0.12"/><line x1="-8" y1="7" x2="3" y2="7"/><rect x="-4.5" y="-5" width="6" height="3.4" rx="0.6"/><path d="M4 -3 h2 a1.6 1.6 0 0 1 1.6 1.6 V3 a1.4 1.4 0 0 0 1.4 1.4"/></g>';}
+  function m2hhmm(m){m=((Math.round(m)%1440)+1440)%1440;var h=Math.floor(m/60),x=m%60;return (h<10?"0":"")+h+":"+(x<10?"0":"")+x;}
+  function daysList(){var out=[];data.northbound.forEach(function(s,i){if((+s.mins||0)>=45&&prevStop("northbound",i))out.push({arr:"northbound",idx:i});});if(data.settings.roundTrip)data.returnLeg.forEach(function(s,i){if((+s.mins||0)>=45&&prevStop("returnLeg",i))out.push({arr:"returnLeg",idx:i});});return out;}
+  function gaugeDay(arr,i){var s=data[arr]&&data[arr][i];if(!s)return null;var prev=prevStop(arr,i);if(!prev)return null;var mins=+s.mins||0,miles=+s.miles||0;if(mins<=0)return null;var st=legStops(mins),avg=mins>0?miles/(mins/60):0,R=usableRange();var Nfuel=(R>0&&miles>R)?Math.ceil(miles/R)-1:0,fuelSet={};if(Nfuel>0&&st.breaks.length>0){for(var k=1;k<=Nfuel;k++){var target=k*R,pick=-1;for(var b=0;b<st.breaks.length;b++){var mb=avg*((b+1)*st.iv/60);if(mb<=target)pick=b;}if(pick<0)pick=st.breaks.length-1;fuelSet[pick]=true;}}var depart=t2m(s.depart||data.settings.defaultDepart),segs=[],fuelStops=[];var lunchPin=lunchPinOf(arr,i),lunchName=lunchPin?lunchPin.name:"";var evts=[];for(var _b=0;_b<st.breaks.length;_b++){evts.push({at:st.breaks[_b],ty:fuelSet[_b]?"fuel":"break"});}if(st.lunch){var _lt=780,_lbi=-1,_lbd=1e9;for(var _lb=0;_lb<st.breaks.length;_lb++){var _lc=depart+st.breaks[_lb]+_lb*st.bl,_ld=Math.abs(_lc-_lt);if(_ld<_lbd){_lbd=_ld;_lbi=_lb;}}if(_lbi>=0){for(var _e=0;_e<evts.length;_e++){if(evts[_e].at===st.breaks[_lbi]){evts[_e].ty="lunch";break;}}}}evts.sort(function(a,b){return a.at-b.at;});var clock=depart,driven=0;for(var _i=0;_i<evts.length;_i++){var ev=evts[_i];if(ev.at>=mins||ev.at<=driven)continue;var d=ev.at-driven;segs.push(["drive",clock,clock+d]);clock+=d;driven=ev.at;var durr=(ev.ty==="lunch")?st.ll:st.bl;segs.push([ev.ty,clock,clock+durr]);if(ev.ty==="fuel")fuelStops.push(clock+durr);clock+=durr;}if(driven<mins){segs.push(["drive",clock,clock+(mins-driven)]);clock+=(mins-driven);driven=mins;}return {segs:segs,fuelStops:fuelStops,depart:depart,arrive:clock,miles:miles,driveMin:mins,from:shortLoc(prev.name),to:shortLoc(s.name),date:s.date,dest:[s.lat,s.lng],lunchName:lunchName};}
+  function milesBy(day,t){var mpm=day.miles/day.driveMin,dv=0;day.segs.forEach(function(s){if(s[0]==="drive"&&t>s[1])dv+=Math.min(t,s[2])-s[1];});return dv*mpm;}
+  function fuelFrac(day,t){var full=(+data.settings.tankGal||1)*(+data.settings.mpg||1),fills=[day.depart].concat(day.fuelStops||[]),last=day.depart;fills.forEach(function(f){if(f<=t)last=f;});return Math.max(0,Math.min(1,1-(milesBy(day,t)-milesBy(day,last))/full));}
+  function nextEvent(day,t){for(var i=0;i<day.segs.length;i++){var s=day.segs[i];if(s[1]>t&&s[0]!=="drive")return{t:s[1],ty:s[0]==="fuel"?"Fuel":cap(s[0])};}return{t:day.arrive,ty:"Arrive"};}
+  function statusAt(day,now){if(now<day.depart)return{h:"Not started",s:"departs "+fmt(day.depart)};if(now>=day.arrive)return{h:"Arrived",s:fmt(day.arrive)};for(var i=0;i<day.segs.length;i++){var s=day.segs[i];if(now>=s[1]&&now<s[2]){if(s[0]==="drive"){var n=nextEvent(day,now);return{h:"Driving",s:n.ty.toLowerCase()+" "+fmt(n.t)};}return{h:s[0]==="fuel"?"Fuel stop":cap(s[0]),s:"rolling "+fmt(s[2])};}}return{h:"Driving",s:"arriving "+fmt(day.arrive)};}
+  var liveMap={},selMap={},dragging=false,dragArr=null,dragI=null,dragSvg=null;
+  var lastSnap=null,audioCtx=null,_HAP=null;
+  function haptics(){if(_HAP!==null)return _HAP;try{if(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.registerPlugin){_HAP=Capacitor.registerPlugin('Haptics');}else _HAP=false;}catch(e){_HAP=false;}return _HAP;}function tickSound(){try{if(!audioCtx){var AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC();}if(!audioCtx)return;if(audioCtx.state==='suspended')audioCtx.resume();var o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=audioCtx.currentTime;o.type='square';o.frequency.value=1400;o.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.045,t);g.gain.exponentialRampToValueAtTime(0.0001,t+0.025);o.start(t);o.stop(t+0.03);}catch(e){}}function tickFeedback(){var H=haptics();if(H){try{H.selectionChanged();}catch(e){}}else if(navigator.vibrate){try{navigator.vibrate(8);}catch(e){}}}function hapticStart(){var H=haptics();if(H){try{H.selectionStart();}catch(e){}}try{if(!audioCtx){var AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC();}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();}catch(e){}}function hapticEnd(){var H=haptics();if(H){try{H.selectionEnd();}catch(e){}}}
+  function nowMin(){var d=new Date();return d.getHours()*60+d.getMinutes();}
+  var LK="rt_gauge_logs";
+  function logs(){try{return JSON.parse(localStorage.getItem(LK)||"{}");}catch(e){return{};}}
+  function saveLogs(o){try{localStorage.setItem(LK,JSON.stringify(o));}catch(e){}}
+  function curLog(arr,i){return logs()[arr+":"+i]||{};}
+  function setLog(arr,i,o){var a=logs();a[arr+":"+i]=o;saveLogs(a);}
+  function wrapOf(arr,i){return document.querySelector('.cardgauge[data-arr="'+arr+'"][data-i="'+i+'"]');}
+  function wxIcon(c){c=+c;if(c===0)return'\u2600\uFE0F';if(c===1)return'\uD83C\uDF24\uFE0F';if(c===2)return'\u26C5';if(c===3)return'\u2601\uFE0F';if(c===45||c===48)return'\uD83C\uDF2B\uFE0F';if(c>=51&&c<=57)return'\uD83C\uDF26\uFE0F';if(c>=61&&c<=67)return'\uD83C\uDF27\uFE0F';if(c>=71&&c<=77)return'\uD83C\uDF28\uFE0F';if(c>=80&&c<=82)return'\uD83C\uDF26\uFE0F';if(c>=85&&c<=86)return'\uD83C\uDF28\uFE0F';if(c>=95)return'\u26C8\uFE0F';return'';}function drivenBy(day,T){if(!day||!day.segs)return 0;var dm=0;for(var k=0;k<day.segs.length;k++){var sg=day.segs[k];if(sg[0]!=='drive')continue;if(T<=sg[1])break;dm+=Math.min(T,sg[2])-sg[1];if(T<sg[2])break;}return dm;}function posAtClock(prev,s,day,geo,T){if(!day)return[+s.lat,+s.lng];if(T<=day.depart)return[+prev.lat,+prev.lng];if(T>=day.arrive)return[+s.lat,+s.lng];var frac=day.driveMin>0?Math.max(0,Math.min(1,drivenBy(day,T)/day.driveMin)):1;if(geo&&geo.coords&&geo.coords.length>1){var C=geo.coords,tot=0,sd=[];for(var k=1;k<C.length;k++){var d=Math.hypot(C[k][0]-C[k-1][0],C[k][1]-C[k-1][1]);sd.push(d);tot+=d;}var tg=frac*tot,ac=0;for(var k=1;k<C.length;k++){ac+=sd[k-1];if(ac>=tg)return C[k];}return C[C.length-1];}return[+prev.lat+(+s.lat-+prev.lat)*frac,+prev.lng+(+s.lng-+prev.lng)*frac];}var legWx={};try{legWx=JSON.parse(localStorage.getItem('rt_legwx')||'{}')||{};}catch(e){legWx={};}var wxPending={};function saveLegWx(){try{localStorage.setItem('rt_legwx',JSON.stringify(legWx));}catch(e){}}/* Four samples spread across the actual drive: pull-out, a third in, two thirds in, arrival.
+   Each is taken at the place you'll actually be at that hour, in that place's own local time. */
+  /* Four samples spread across the actual drive: pull-out, a third in, two thirds in, arrival.
+     Each is taken at the place you'll actually be at that hour, in that place's own local time. */
+  function wxSampleTimes(day){
+    var a=day.depart,b=day.arrive;
+    if(!(b>a))return [a];
+    return [a,a+(b-a)/3,a+2*(b-a)/3,b].map(function(t){return Math.round(t);});
+  }
+  /* Every failure gets a state we can show, so the weather is never just silently blank. */
+  function wxSet(key,o,arr,i){
+    legWx[key]=o;
+    saveLegWx();
+    delete wxPending[key];
+    try{refreshGauge(arr,i);}catch(e){}
+  }
+  function ensureWeather(arr,i,force){
+    var s=data[arr]&&data[arr][i],prev=prevStop(arr,i);
+    if(!s||!prev||s.origin)return;
+    var key=arr+':'+i,day=gaugeDay(arr,i);
+    if(!day)return;
+    if(!s.date){legWx[key]={state:"nodate"};return;}
+    var c=legWx[key];
+    if(!force&&c&&c.date===s.date&&c.dep===day.depart&&c.state==="ok"&&(Date.now()-c.ts)<216e5)return;
+    /* a failed lookup is only held for 3 minutes, so it retries instead of staying blank */
+    if(!force&&c&&c.date===s.date&&c.dep===day.depart&&c.state&&c.state!=="ok"&&(Date.now()-c.ts)<18e4)return;
+    if(wxPending[key])return;
+
+    var today=new Date();today.setHours(12,0,0,0);
+    var dOut=Math.round((parseDate(s.date)-today)/864e5);
+    var base;
+    if(dOut>15){wxSet(key,{date:s.date,dep:day.depart,ts:Date.now(),state:"far",days:dOut},arr,i);return;}
+    if(dOut<-92){wxSet(key,{date:s.date,dep:day.depart,ts:Date.now(),state:"old"},arr,i);return;}
+    /* the forecast feed only reaches ~5 days back; older days come from the archive */
+    base=(dOut<-5)?"https://archive-api.open-meteo.com/v1/archive?":"https://api.open-meteo.com/v1/forecast?";
+
+    wxPending[key]=1;
+    var geo=legGeo[key],times=wxSampleTimes(day);
+    var locs=times.map(function(T){return posAtClock(prev,s,day,geo,T);});
+    var la=locs.map(function(l){return (+l[0]).toFixed(4);}).join(','),
+        lo=locs.map(function(l){return (+l[1]).toFixed(4);}).join(',');
+    var url=base+'latitude='+la+'&longitude='+lo+
+      '&hourly=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto&start_date='+s.date+'&end_date='+s.date;
+    var died=setTimeout(function(){
+      if(wxPending[key])wxSet(key,{date:s.date,dep:day.depart,ts:Date.now(),state:"timeout"},arr,i);
+    },20000);
+    fetch(url).then(function(r){
+      return r.json().then(function(j){return {ok:r.ok,j:j};});
+    }).then(function(res){
+      clearTimeout(died);
+      var j=res.j;
+      if(!res.ok||(j&&j.error)){
+        wxSet(key,{date:s.date,dep:day.depart,ts:Date.now(),state:"apierr",
+                   why:(j&&j.reason)?String(j.reason).slice(0,120):("HTTP "+(res.ok?"?":"error"))},arr,i);
+        return;
+      }
+      var A=Array.isArray(j)?j:[j];
+      function pick(o,T){
+        var h=o&&o.hourly;
+        if(!h||!h.time||!h.time.length)return null;
+        var hh=Math.max(0,Math.min(23,Math.round(T/60)));
+        var want=s.date+'T'+('0'+hh).slice(-2)+':00',idx=h.time.indexOf(want);
+        if(idx<0){                                  /* some feeds return a bare hour index */
+          idx=-1;
+          for(var q=0;q<h.time.length;q++){if(String(h.time[q]).indexOf('T'+('0'+hh).slice(-2))>=0){idx=q;break;}}
+        }
+        if(idx<0)idx=Math.min(h.time.length-1,hh);
+        var t=h.temperature_2m&&h.temperature_2m[idx];
+        if(t==null)return null;
+        return {t:Math.round(t),c:+((h.weather_code&&h.weather_code[idx])||0)};
+      }
+      var pts=times.map(function(T,k){
+        var d=pick(A[k]||A[0],T);
+        return d?{at:T,t:d.t,c:d.c}:null;
+      });
+      if(!pts.filter(Boolean).length){
+        wxSet(key,{date:s.date,dep:day.depart,ts:Date.now(),state:"empty"},arr,i);
+        return;
+      }
+      wxSet(key,{date:s.date,dep:day.depart,ts:Date.now(),state:"ok",pts:pts},arr,i);
+    }).catch(function(){
+      clearTimeout(died);
+      wxSet(key,{date:s.date,dep:day.depart,ts:Date.now(),state:"offline"},arr,i);
+    });
+  }
+  /* one line of plain text, so the forecast is readable without decoding the dial corners */
+  function wxStrip(arr,i){
+    var wx=legWx[arr+':'+i];
+    var msg={nodate:"Add a date to this stop and the forecast for the drive appears here.",
+             far:"Forecast for this day isn’t published yet — it lands about two weeks out.",
+             old:"That day is too far back for the weather archive.",
+             apierr:"Weather service turned the request down.",
+             empty:"Weather service had nothing for that day.",
+             offline:"Couldn’t reach the weather service — check your connection.",
+             timeout:"Weather service didn’t answer."};
+    if(!wx)return '<div class="wxstrip pending">Fetching the weather along this drive…</div>';
+    if(wx.state!=="ok"){
+      return '<div class="wxstrip warn">'+(msg[wx.state]||"Weather unavailable.")+
+        (wx.why?' <span class="wxwhy">'+esc(wx.why)+'</span>':'')+
+        (wx.state==="nodate"||wx.state==="far"||wx.state==="old"?'':' <button type="button" class="wxretry" data-arr="'+arr+'" data-i="'+i+'">retry</button>')+
+        '</div>';
+    }
+    var parts=(wx.pts||[]).filter(Boolean).map(function(d,k,all){
+      var tag=(k===0)?"leaving":(k===all.length-1)?"arriving":"";
+      return '<span class="wxc">'+wxIcon(d.c)+' <b>'+d.t+'°</b> '+fmt(d.at)+(d.at>=1440?"+1d":"")+(tag?' <i>'+tag+'</i>':'')+'</span>';
+    });
+    return '<div class="wxstrip">'+parts.join('<span class="wxsep">→</span>')+'</div>';
+  }
+function wxColor(t){var S=[[30,30,70,150],[48,70,140,215],[59,150,200,215],[64,225,215,120],[72,242,205,70],[82,240,140,40],[91,225,70,45],[100,150,18,18]];if(t<=S[0][0])return[S[0][1],S[0][2],S[0][3]];var L=S.length-1;if(t>=S[L][0])return[S[L][1],S[L][2],S[L][3]];for(var k=1;k<S.length;k++){if(t<=S[k][0]){var a=S[k-1],b=S[k],f=(t-a[0])/(b[0]-a[0]);return[Math.round(a[1]+(b[1]-a[1])*f),Math.round(a[2]+(b[2]-a[2])*f),Math.round(a[3]+(b[3]-a[3])*f)];}}return[S[L][1],S[L][2],S[L][3]];}function wxCorners(arr,i){
+    var wx=legWx[arr+':'+i];
+    if(!wx)return '';
+    var cap='<text x="200" y="396" text-anchor="middle" style="font-family:var(--mono);font-size:7px;fill:#c0cccd">';
+    if(wx.state&&wx.state!=="ok")return '';
+    var P=wx.pts||[];
+    function corner(x,an,lblY,tempY,iconY,lbl,d,cid){
+      if(!d||d.t==null)return '';
+      var co=wxColor(d.t),rgb='rgb('+co[0]+','+co[1]+','+co[2]+')',cx=(an==='start')?x+24:x-24,cy=(lblY+iconY)/2;
+      return '<radialGradient id="'+cid+'" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="'+rgb+'" stop-opacity="0.4"/><stop offset="62%" stop-color="'+rgb+'" stop-opacity="0.12"/><stop offset="100%" stop-color="'+rgb+'" stop-opacity="0"/></radialGradient>'+
+        '<ellipse cx="'+cx+'" cy="'+cy+'" rx="50" ry="40" fill="url(#'+cid+')"/>'+
+        '<text x="'+x+'" y="'+lblY+'" text-anchor="'+an+'" style="font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;fill:#93a7aa">'+lbl+'</text>'+
+        '<text x="'+x+'" y="'+tempY+'" text-anchor="'+an+'" style="font-family:var(--disp);font-size:15px;font-weight:700;fill:#20323a">'+d.t+'°</text>'+
+        '<text x="'+x+'" y="'+iconY+'" text-anchor="'+an+'" style="font-size:29px">'+wxIcon(d.c)+'</text>';
+    }
+    /* clockwise from the top-left: leaving, a third in, two thirds in, arriving */
+    var slots=[[42,'start',42,57,88],[358,'end',42,57,88],[358,'end',366,351,325],[42,'start',366,351,325]];
+    var tags=['LEAVE','','','ARRIVE'];
+    var out='';
+    for(var k=0;k<slots.length;k++){
+      var d=P[k];
+      if(!d)continue;
+      var lbl=fmt(d.at).toUpperCase()+(d.at>=1440?' +1D':'')+(tags[k]?' '+tags[k]:'');
+      out+=corner(slots[k][0],slots[k][1],slots[k][2],slots[k][3],slots[k][4],lbl,d,'wxg'+arr[0]+i+k);
+    }
+    if(out)out+=cap+'weather along the way &#183; Open-Meteo</text>';
+    return out;
+  }
+  function drawCard(arr,i){
+    var wrap=wrapOf(arr,i);if(!wrap)return;var svgEl=wrap.querySelector('.cg'),simEl=wrap.querySelector('.cg-sim');if(!svgEl)return;
+    var day=gaugeDay(arr,i);if(!day){svgEl.innerHTML="";return;}
+    if(simEl&&!simEl.dataset.init){simEl.value=Math.round((day.depart+day.arrive)/2);simEl.dataset.init="1";}
+    var live=!!liveMap[arr+":"+i],now=live?nowMin():(simEl?(+simEl.value):Math.round((day.depart+day.arrive)/2));
+    var gSel=(selMap[arr+":"+i]==null?-1:selMap[arr+":"+i]);
+    var o=curLog(arr,i),logged=(o.startMin!=null),d=logged?(o.startMin-day.depart):0,eff=now-d,pos=logged?eff:now,span=(day.arrive-day.depart)||1;
+    var svg='<path d="'+arc(0,359.9,rIn,rOut)+'" fill="#edf2f1"/>';
+    for(var t=0;t<60;t++){var a=t*6,p1=pt(a,rOut+3),p2=pt(a,rOut+(t%5===0?10:6));svg+='<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+'" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+'" stroke="#d4dedd" stroke-width="'+(t%5===0?1.6:0.8)+'"/>';}
+    svg+='<path d="'+arc(ang(day.arrive),ang(day.arrive+45),rOut+2,rOut+7)+'" fill="#ecc7bf"/>';
+    function _dSeg(sg){var t0=sg[1],t1=sg[2];for(var u=t0;u<t1;u+=4){var v=Math.min(u+4,t1);var col=sg[0]==="drive"?lerp(HUE.drive[0],HUE.drive[1],(u-day.depart)/span):BASE[sg[0]];svg+='<path d="'+arc(ang(u)+(u===t0?0.6:0),ang(v)-(v===t1?0.6:0),rIn,rOut)+'" fill="'+col+'"/>';}}day.segs.forEach(function(sg){if(sg[0]==="drive")_dSeg(sg);});day.segs.forEach(function(sg){if(sg[0]!=="drive")_dSeg(sg);});if(span<700){svg+='<path pointer-events="none" d="'+arc(ang(day.arrive),ang(day.depart),rIn,rOut)+'" fill="#edf2f1"/>';}day.segs.forEach(function(sg,si){var t0=sg[1],t1=sg[2];svg+='<path data-seg="'+si+'" pointer-events="all" style="cursor:pointer" d="'+arc(ang(t0)+0.6,ang(t1)-0.6,rIn,rOut)+'" fill="none"'+(si===gSel?' stroke="#163038" stroke-width="2"':'')+'/>';});
+    var evs=[{m:day.depart,t:"Depart"}];day.segs.forEach(function(sg){if(sg[0]!=="drive")evs.push({m:sg[1],t:sg[0]==="fuel"?"Fuel":cap(sg[0])});});evs.push({m:day.arrive,t:"Arrive"});
+    evs.forEach(function(e){var a=ang(e.m),dp=pt(a,rOut),lp=pt(a,rLabel),si=Math.sin(a*Math.PI/180),an=si>0.25?"start":(si<-0.25?"end":"middle");if(e.t==="Depart"){var K=pt(a,150),TL=[K[0],Math.max(15,K[1]-28)],arm0=pt(a,rOut-2),piv=pt(a,rOut);svg+='<line x1="'+arm0[0].toFixed(1)+'" y1="'+arm0[1].toFixed(1)+'" x2="'+K[0].toFixed(1)+'" y2="'+K[1].toFixed(1)+'" stroke="#e2472f" stroke-width="5" stroke-linecap="round"/>';svg+='<circle cx="'+piv[0].toFixed(1)+'" cy="'+piv[1].toFixed(1)+'" r="3.2" fill="#e2472f"/>';svg+='<circle data-drag="depart" cx="'+K[0].toFixed(1)+'" cy="'+K[1].toFixed(1)+'" r="22" fill="#e2472f" fill-opacity="0" pointer-events="all" style="cursor:grab;touch-action:none"/>';svg+='<circle cx="'+K[0].toFixed(1)+'" cy="'+K[1].toFixed(1)+'" r="18" fill="#e2472f" fill-opacity="0.13" pointer-events="none"/>';svg+='<circle cx="'+K[0].toFixed(1)+'" cy="'+K[1].toFixed(1)+'" r="13" fill="#e2472f" stroke="#fff" stroke-width="2.5" pointer-events="none"/>';svg+='<circle cx="'+K[0].toFixed(1)+'" cy="'+K[1].toFixed(1)+'" r="5" fill="none" stroke="#fff" stroke-width="1.6" pointer-events="none"/>';svg+='<circle cx="'+K[0].toFixed(1)+'" cy="'+K[1].toFixed(1)+'" r="2" fill="#fff" pointer-events="none"/>';svg+='<text x="'+TL[0].toFixed(1)+'" y="'+(TL[1]+3.5).toFixed(1)+'" text-anchor="middle" style="font-family:var(--mono);font-size:10.5px;font-weight:700;fill:#1b2a2e">'+fmt(e.m)+'</text>';}else{svg+='<circle cx="'+dp[0].toFixed(1)+'" cy="'+dp[1].toFixed(1)+'" r="3.4" fill="#fff" stroke="#1b2a2e" stroke-width="1.4"/>';svg+='<text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]-1).toFixed(1)+'" text-anchor="'+an+'" style="font-family:var(--mono);font-size:13.5px;font-weight:700;fill:#1b2a2e">'+fmt(e.m)+'</text><text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]+11).toFixed(1)+'" text-anchor="'+an+'" style="font-family:var(--body);font-size:11px;fill:#61767a">'+e.t+'</text>';}});
+    if(logged&&Math.abs(d)>=1)svg+=needle(eff,"#8aa0a2",3,true);
+    svg+=needle(now,"#e2472f",4,false);
+    var frac=fuelFrac(day,pos),reserve=(+data.settings.reservePct||20)/100,low=frac<=reserve,tankCol=low?"#e79b8b":"#bfe0e6",surf=low?"#c9614f":"#7fb9c4",fillTop=cy+hubR-2*hubR*frac;
+    var nf2=null;day.segs.forEach(function(sg){if(sg[0]==="fuel"&&sg[1]>pos&&nf2===null)nf2=sg[1];});var comingUp=nf2!==null&&(nf2-pos)<=75;
+    svg+='<clipPath id="ghub'+arr+i+'"><circle cx="200" cy="200" r="'+hubR+'"/></clipPath>';
+    svg+='<circle cx="200" cy="200" r="'+hubR+'" fill="#ffffff" stroke="#cdd8d6"/>';
+    svg+='<g clip-path="url(#ghub'+arr+i+')"><rect x="'+(cx-hubR)+'" y="'+fillTop.toFixed(1)+'" width="'+(2*hubR)+'" height="'+(cy+hubR-fillTop).toFixed(1)+'" fill="'+tankCol+'"/><line x1="'+(cx-hubR)+'" y1="'+fillTop.toFixed(1)+'" x2="'+(cx+hubR)+'" y2="'+fillTop.toFixed(1)+'" stroke="'+surf+'" stroke-width="1.5"/></g>';
+    svg+='<circle cx="200" cy="200" r="'+hubR+'" fill="none" stroke="#cdd8d6"/>';
+    svg+='<text x="'+(cx-hubR+8)+'" y="'+(cy-hubR+16)+'" style="font-family:var(--mono);font-size:9px;fill:#8fa6a8">F</text><text x="'+(cx-hubR+8)+'" y="'+(cy+hubR-7)+'" style="font-family:var(--mono);font-size:9px;fill:#8fa6a8">E</text>';
+    var stt=statusAt(day,pos);
+    var depDrag=dragging&&dragArr===arr&&dragI===i;svg+='<text x="200" y="162" text-anchor="middle" style="font-family:var(--mono);font-size:21px;font-weight:700;fill:'+(depDrag?"#e2472f":"#1b2a2e")+'">'+(depDrag?fmt(day.depart):fmt(now))+'</text>';
+    svg+='<text x="200" y="184" text-anchor="middle" style="font-family:var(--disp);font-size:14px;font-weight:700;fill:'+(depDrag?"#e2472f":"#1f5a66")+'">'+(depDrag?"DEPARTURE":stt.h)+'</text>';
+    svg+='<text x="200" y="230" text-anchor="middle" style="font-family:var(--disp);font-size:19px;font-weight:700;fill:'+(low?"#c0392b":"#1b2a2e")+'">\u2248 '+Math.round(frac*(+data.settings.tankGal||0)*(+data.settings.mpg||0))+' mi</text>';
+    svg+='<text x="200" y="245" text-anchor="middle" style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;fill:#61767a">RANGE LEFT</text>';
+    if(comingUp)svg+=pumpIcon(150,224,"#b9842a");
+    svg+='<circle cx="200" cy="200" r="5" fill="#fff" stroke="#e2472f" stroke-width="2"/><circle cx="200" cy="200" r="2.2" fill="#e2472f"/>';
+    svg+=wxCorners(arr,i);svgEl.innerHTML=svg;ensureWeather(arr,i);
+    function q(sel){return wrap.querySelector(sel);}
+    var lab=q('.cg-simlab');if(lab)lab.textContent=fmt(now);
+    var lb=q('.cg-live');if(lb)lb.classList.toggle('on',live);
+    q('.t-odo').innerHTML=Math.round(Math.max(0,Math.min(day.miles,milesBy(day,pos))))+' <small>/ '+Math.round(day.miles)+'</small>';
+    q('.t-spd').innerHTML=Math.round(day.miles/(day.driveMin/60))+' <small>mph</small>';
+    q('.t-fuel').innerHTML=Math.round(frac*100)+'%';
+    var n=nextEvent(day,pos);q('.t-next').innerHTML=(pos>=day.arrive?'\u2014':n.ty+'<br><small>'+fmt(n.t)+'</small>');
+    var eta=day.arrive+d;q('.t-eta').innerHTML=fmt(eta)+'<br><small>'+(now>=eta?'arrived':'in '+dur(eta-now))+'</small>';
+    var sv=q('.t-sched');if(!logged){sv.className='v t-sched';sv.innerHTML='\u2014<br><small>not started</small>';}else if(Math.abs(d)<3){sv.className='v t-sched';sv.innerHTML='On time';}else if(d>0){sv.className='v t-sched late';sv.innerHTML=d+'m<br><small>behind</small>';}else{sv.className='v t-sched early';sv.innerHTML=(-d)+'m<br><small>ahead</small>';}
+    var ws=q('.cg-wx');if(ws)ws.innerHTML=wxStrip(arr,i);
+    var ft=q('.cg-foot');if(ft)ft.innerHTML='Departs '+fmt(day.depart)+' \u00b7 door to door '+dur(day.arrive-day.depart)+' \u00b7 '+Math.round(day.miles)+' mi \u00b7 red at '+(+data.settings.reservePct||20)+'% reserve'+(day.segs.length<=1?' \u00b7 short drive, no scheduled stops':'')+(day.lunchName?' \u00b7 Lunch: '+day.lunchName:'');
+  }
+  function renderLog(arr,i){var wrap=wrapOf(arr,i);if(!wrap)return;var el=wrap.querySelector('.cg-logout');if(!el)return;var o=curLog(arr,i);if(o.startMin==null){el.innerHTML="";return;}var day=gaugeDay(arr,i),dd=o.startMin-day.depart,h="Started <span class='a'>"+fmt(o.startMin)+"</span> vs planned "+fmt(day.depart)+" \u00b7 "+(Math.abs(dd)<3?"on time":(dd>0?"<span class='bad'>"+dd+"m behind</span>":(-dd)+"m ahead"));if(o.endMin!=null)h+="<br>Arrived <span class='a'>"+fmt(o.endMin)+"</span> \u00b7 door to door "+dur(o.endMin-o.startMin);if(o.stops&&o.stops.length)h+="<br>Unplanned stops: "+o.stops.map(function(x){return fmt(x);}).join(", ");el.innerHTML=h;}
+  wxIconOuter=wxIcon;
+  retryWeather=function(arr,i){try{delete legWx[arr+":"+i];delete wxPending[arr+":"+i];saveLegWx();}catch(e){}ensureWeather(arr,i,true);drawCard(arr,i);};
+  refreshGauge=function(arr,i){if(arr!=null&&i!=null){drawCard(arr,i);renderLog(arr,i);return;}daysList().forEach(function(x){drawCard(x.arr,x.idx);renderLog(x.arr,x.idx);});};
+  function evtAngle(svgEl,e){var r=svgEl.getBoundingClientRect(),sc=400/r.width,x=(e.clientX-r.left)*sc-cx,y=(e.clientY-r.top)*sc-cy,a=Math.atan2(x,-y)*180/Math.PI;return (a+360)%360;}
+  function syncPlan(arr,i){queueSave();renderChips();var card=document.querySelector('.stop[data-arr="'+arr+'"][data-i="'+i+'"]');if(card){var inp=card.querySelector('input.depart[data-f="depart"]');if(inp)inp.value=data[arr][i].depart;}drawCard(arr,i);}
+  gaugeWire=function(){
+    if(window.__cgWired)return;window.__cgWired=true;
+    document.addEventListener('input',function(e){var el=e.target;if(el&&el.classList&&el.classList.contains('cg-sim')){var w=el.closest('.cardgauge');if(!w)return;var arr=w.getAttribute('data-arr'),i=+w.getAttribute('data-i');liveMap[arr+':'+i]=false;var lb=w.querySelector('.cg-live');if(lb)lb.classList.remove('on');drawCard(arr,i);}});
+    document.addEventListener('click',function(e){
+      var t=e.target;if(!t.closest)return;
+      var lv=t.closest('.cg-live');if(lv){var w=lv.closest('.cardgauge'),arr=w.getAttribute('data-arr'),i=+w.getAttribute('data-i');liveMap[arr+':'+i]=!liveMap[arr+':'+i];drawCard(arr,i);return;}
+      var lb=t.closest('.cg-lbtn');if(lb){var w=lb.closest('.cardgauge'),arr=w.getAttribute('data-arr'),i=+w.getAttribute('data-i');var live=!!liveMap[arr+':'+i],sEl=w.querySelector('.cg-sim'),nowv=live?nowMin():(+sEl.value);if(lb.classList.contains('cg-start'))setLog(arr,i,{startMin:nowv,stops:[]});else if(lb.classList.contains('cg-stop')){var o=curLog(arr,i);if(o.startMin==null)o={startMin:nowv,stops:[]};o.stops=o.stops||[];o.stops.push(nowv);setLog(arr,i,o);}else if(lb.classList.contains('cg-arr')){var o2=curLog(arr,i);if(o2.startMin!=null){o2.endMin=nowv;setLog(arr,i,o2);}}else if(lb.classList.contains('cg-reset'))setLog(arr,i,{});renderLog(arr,i);drawCard(arr,i);return;}
+      var seg=t.closest('[data-seg]');if(seg&&!dragging){var w=seg.closest('.cardgauge');if(!w)return;var arr=w.getAttribute('data-arr'),i=+w.getAttribute('data-i'),day=gaugeDay(arr,i),idx=+seg.getAttribute('data-seg'),sg=day.segs[idx];selMap[arr+':'+i]=idx;var mi=Math.round(milesBy(day,sg[1])),fp=Math.round(fuelFrac(day,sg[1])*100),ss=w.querySelector('.cg-segsel');if(ss)ss.textContent=(sg[0]==="drive"?"Driving":cap(sg[0]))+" \u00b7 "+fmt(sg[1])+"\u2013"+fmt(sg[2])+" \u00b7 "+dur(sg[2]-sg[1])+" \u00b7 "+mi+" mi in \u00b7 fuel "+fp+"%"+((sg[0]==="lunch"&&day.lunchName)?" \u00b7 "+day.lunchName:"");drawCard(arr,i);return;}
+    });
+    document.addEventListener('pointerdown',function(e){if(!e.target.closest)return;var kn=e.target.closest('[data-drag]');if(!kn)return;var svgEl=kn.closest('.cg');if(!svgEl)return;var w=svgEl.closest('.cardgauge');dragging=true;dragArr=w.getAttribute('data-arr');dragI=+w.getAttribute('data-i');dragSvg=svgEl;lastSnap=t2m(data[dragArr][dragI].depart||data.settings.defaultDepart);hapticStart();try{svgEl.setPointerCapture(e.pointerId);}catch(x){}e.preventDefault();});
+    document.addEventListener('pointermove',function(e){if(!dragging)return;var a=evtAngle(dragSvg,e),cp=a/360*720,c=t2m(data[dragArr][dragI].depart||data.settings.defaultDepart),real=(Math.abs(cp-c)<=Math.abs(cp+720-c))?cp:cp+720;real=Math.max(240,Math.min(1320,Math.round(real/5)*5));if(real!==lastSnap){lastSnap=real;data[dragArr][dragI].depart=m2hhmm(real);drawCard(dragArr,dragI);tickFeedback();}});
+    document.addEventListener('pointerup',function(){if(!dragging)return;dragging=false;hapticEnd();syncPlan(dragArr,dragI);});
+  };
+  setInterval(function(){Object.keys(liveMap).forEach(function(k){if(liveMap[k]){var p=k.split(":");drawCard(p[0],+p[1]);}});},60000);
+})();
+})();
+</script>
+<script>
+/* Offline support. Only meaningful when the page is served over http(s) —
+   opened straight from disk this quietly does nothing. */
+(function(){
+  "use strict";
+  var bar=document.getElementById("netbar"),hideT=null;
+  function show(msg,cls,btn,onBtn){
+    if(!bar)return;
+    clearTimeout(hideT);
+    bar.className="netbar show"+(cls?" "+cls:"");
+    bar.innerHTML=msg+(btn?' <button type="button">'+btn+'</button>':'');
+    var b=bar.querySelector("button");
+    if(b&&onBtn)b.addEventListener("click",onBtn);
+  }
+  function flashBar(msg,cls,ms){
+    show(msg,cls);
+    hideT=setTimeout(hide,ms||4000);
+  }
+  function hide(){if(bar)bar.className="netbar";}
+
+  window.addEventListener("offline",function(){
+    show("You’re offline — your trip and the maps you’ve already loaded still work.","");
+  });
+  window.addEventListener("online",function(){
+    flashBar("Back online — refreshing routes and weather.","",3500);
+    try{if(window.__rtRefresh)window.__rtRefresh();}catch(e){}
+  });
+  if(!navigator.onLine)show("You’re offline — your trip and the maps you’ve already loaded still work.","");
+
+  if(!("serviceWorker" in navigator))return;
+  if(location.protocol!=="http:"&&location.protocol!=="https:")return;
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("sw.js").then(function(reg){
+      if(!navigator.serviceWorker.controller){
+        flashBar("Saved for offline — this now works with no signal.","",5000);
+      }
+      reg.addEventListener("updatefound",function(){
+        var sw=reg.installing;
+        if(!sw)return;
+        sw.addEventListener("statechange",function(){
+          if(sw.state==="installed"&&navigator.serviceWorker.controller){
+            show("A newer version is ready.","upd","Reload",function(){
+              sw.postMessage("skipWaiting");
+              location.reload();
+            });
+          }
+        });
+      });
+    }).catch(function(){});
+  });
+})();
+</script>
+</body>
+</html>
