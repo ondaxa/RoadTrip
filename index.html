@@ -433,7 +433,31 @@ input[type=file]{display:none}
 .field input.lunchin{min-width:190px}
 .field .lunchstate{font-family:var(--mono);font-size:10px;color:var(--teal);margin-top:2px;min-height:12px}
 .badge.nights{background:#e9f1f1;color:var(--teal)}
-@media(max-width:600px){#tbMap{height:260px}.tb-crow{grid-template-columns:1fr}.rday{padding:7px 2px 8px}}</style>
+@media(max-width:600px){#tbMap{height:260px}.tb-crow{grid-template-columns:1fr}.rday{padding:7px 2px 8px}}
+/* ---------- phone fixes ----------
+   Grid items default to min-width:auto, and an <input> refuses to shrink below
+   about 20 characters. That made the two-column builder wider than a phone
+   screen, pushing the start / destination fields off the right edge. */
+.tb-f,.tb-addgrid>*,.tb-crow>*{min-width:0}
+.tb-f input,.tb-f select,.tb-addgrid input,.tb-addgrid select{max-width:100%}
+.tb-stoplist li{flex-wrap:wrap}
+.cardgauge .cg{max-width:100%}
+@media(max-width:620px){
+  .tb-overlay{padding:8px 6px}
+  .tb-panel{padding:16px 14px 22px;border-radius:13px}
+  .tb-head{font-size:21px}
+  .tb-subhead{font-size:13px}
+  .tb-grid,.tb-addgrid{grid-template-columns:1fr}
+  .tb-sec{padding-top:12px;margin-top:14px}
+  .tb-stoplist .tb-sname{flex:1 1 100%;order:-1}
+  .tb-stoplist li{gap:6px;padding:9px 10px}
+  .tb-nights .n{min-width:52px}
+  .cardgauge .cg-center{width:100%;max-width:100%}
+  .cardgauge .cg-around{gap:8px}
+  .netbar{font-size:12px;padding:8px 10px}
+  .stop,.card,.ribbon{min-width:0;max-width:100%}
+}
+</style>
 </head>
 <body>
 <div id="tripBuilder" class="tb-overlay" hidden>
