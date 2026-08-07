@@ -3,7 +3,7 @@
    Everything the app needs to render your plan is cached, and map tiles, routes and
    forecasts you have already looked at keep working with the phone in airplane mode.  */
 
-const VERSION   = 'routelog-v1';
+const VERSION   = 'routelog-v2';
 const SHELL     = `${VERSION}-shell`;   // the app itself
 const TILES     = `${VERSION}-tiles`;   // OpenStreetMap imagery
 const DATA      = `${VERSION}-data`;    // routing, geocoding, weather
